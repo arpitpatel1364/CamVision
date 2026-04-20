@@ -1,0 +1,26 @@
+{
+  "example_id": {
+    "name": "Front Door",
+    "host": "192.168.1.XXX",
+    "port": 80,
+    "rtsp_port": 554,
+    "username": "admin",
+    "password": "password123",
+    "device_type": "IP_CAM",
+    "brand": "generic",
+    "manufacturer": "GENERIC",
+    "model": "1080P-CAM",
+    "firmware": "V1.0",
+    "serial": "ABC123456789",
+    "tier": "LIVE_ONLY",
+    "profiles": [
+      {
+        "token": "main_stream",
+        "name": "Main Stream",
+        "resolution": "1920x1080"
+      }
+    ],
+    "has_recording": false,
+    "has_replay": false
+  }
+}

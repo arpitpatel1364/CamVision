@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pydantic
+onvif-zeep
+zeep
+requests
+python-multipart

@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/cameras.json:/app/cameras.json   # persist camera registry
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1

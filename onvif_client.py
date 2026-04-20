@@ -1,0 +1,306 @@
+"""
+onvif_client.py
+Communicates with NVR / DVR / XVR / IP CAM via ONVIF.
+Covers Profile S (live) and Profile G (recording + replay).
+No video is stored — only URIs and metadata are fetched.
+"""
+
+import logging
+import datetime
+import requests
+import xml.etree.ElementTree as ET
+from datetime import datetime as dt_obj, timezone, timedelta
+from urllib.parse import urlparse, urlunparse, quote
+from requests.auth import HTTPDigestAuth
+from onvif import ONVIFCamera
+
+log = logging.getLogger("onvif_client")
+
+
+class ONVIFClient:
+    def __init__(self, host: str, port: int, username: str, password: str):
+        self.host     = host
+        self.port     = port
+        self.username = username
+        self.password = password
+        self._cam       = None
+        self._media     = None
+        self._recording = None
+        self._replay    = None
+        self._search    = None
+
+    def _connect(self):
+        if not self._cam:
+            self._cam = ONVIFCamera(self.host, self.port, self.username, self.password)
+            # Apply time offset to prevent "Unauthorized" errors due to clock drift
+            try:
+                self._sync_time()
+            except Exception as e:
+                log.warning("Time sync failed (may cause auth errors): %s", e)
+        return self._cam
+
+    def _sync_time(self):
+        """
+        Fetches the camera's system time and calculates the offset.
+        This is critical for WS-Security authentication.
+        """
+        if not self._cam:
+            return
+        devmgmt = self._cam.create_devicemgmt_service()
+        system_date = devmgmt.GetSystemDateAndTime()
+        
+        # Extract UTC time from camera response
+        utc = system_date.UTCDateTime
+        cam_utc = dt_obj(
+            utc.Date.Year, utc.Date.Month, utc.Date.Day,
+            utc.Time.Hour, utc.Time.Minute, utc.Time.Second,
+            tzinfo=timezone.utc
+        )
+        
+        # Calculate drift
+        now_utc = dt_obj.now(timezone.utc)
+        diff = cam_utc - now_utc
+        
+        if abs(diff.total_seconds()) > 5:
+            log.info("Time drift detected: %ds. Adjusting authentication headers.", diff.total_seconds())
+            # We tell the ONVIF client to adjust its future timestamps by this offset
+            if self._cam:
+                self._cam.to_utc_timestamp = lambda: dt_obj.now(timezone.utc) + diff
+
+    def _media_svc(self):
+        if not self._media:
+            self._media = self._connect().create_media_service()
+        return self._media
+
+    def _recording_svc(self):
+        if not self._recording:
+            self._recording = self._connect().create_recording_service()
+        return self._recording
+
+    def _replay_svc(self):
+        if not self._replay:
+            self._replay = self._connect().create_replay_service()
+        return self._replay
+
+    def _search_svc(self):
+        if not self._search:
+            self._search = self._connect().create_search_service()
+        return self._search
+
+    # ── Device info ───────────────────────────────────────────────────────
+
+    def get_device_info(self) -> dict:
+        dev = self._connect().create_devicemgmt_service()
+        info = dev.GetDeviceInformation()
+        return {
+            "manufacturer": str(getattr(info, "Manufacturer", "")),
+            "model":        str(getattr(info, "Model", "")),
+            "firmware":     str(getattr(info, "FirmwareVersion", "")),
+            "serial":       str(getattr(info, "SerialNumber", "")),
+        }
+
+    # ── Profiles / Channels ───────────────────────────────────────────────
+
+    def get_profiles(self) -> list:
+        """Fetch all video profiles metadata."""
+        profiles = self._media_svc().GetProfiles()
+        result = []
+        for p in profiles:
+            token = str(getattr(p, "token", ""))
+            name  = str(getattr(p, "Name", token))
+            res   = ""
+            vec = getattr(p, "VideoEncoderConfiguration", None)
+            if vec:
+                r = getattr(vec, "Resolution", None)
+                if r:
+                    res = f"{getattr(r,'Width','')}x{getattr(r,'Height','')}"
+            result.append({"token": token, "name": name, "resolution": res})
+        return result
+
+    # ── Live stream ───────────────────────────────────────────────────────
+
+    def get_live_uri(self, profile_token: str | None = None) -> str:
+        """
+        Fetch the RTSP Live stream URI (Profile S).
+        If profile_token is None, the first available profile is used.
+        """
+        media = self._media_svc()
+        if not profile_token:
+            profiles = self.get_profiles()
+            if not profiles:
+                raise Exception("No profiles found on device")
+            profile_token = profiles[0]["token"]
+
+        req = media.create_type("GetStreamUri")
+        req.ProfileToken = profile_token
+        req.StreamSetup = {
+            "Stream": "RTP-Unicast",
+            "Transport": {"Protocol": "RTSP"},
+        }
+        result = media.GetStreamUri(req)
+        return self.inject_credentials(str(result.Uri))
+
+    # ── Recordings (Profile G) ────────────────────────────────────────────
+
+    def get_recording_summary(self) -> dict:
+        try:
+            summary = self._recording_svc().GetRecordingSummary()
+            return {
+                "data_from":         _dt(getattr(summary, "DataFrom", None)),
+                "data_until":        _dt(getattr(summary, "DataUntil", None)),
+                "number_recordings": int(getattr(summary, "NumberRecordings", 0)),
+            }
+        except Exception as e:
+            log.warning("GetRecordingSummary: %s", e)
+            return {}
+
+    def list_recordings(self) -> list:
+        """Enumerate all recording tokens and their time ranges."""
+        try:
+            items = self._recording_svc().GetRecordings()
+            result = []
+            if not items or not hasattr(items, "RecordingItem"):
+                return []
+            for item in (items.RecordingItem or []):
+                token = str(getattr(item, "RecordingToken", ""))
+                try:
+                    info = self._recording_svc().GetRecordingInformation({"RecordingToken": token})
+                    ri = info.RecordingInformation
+                    result.append({
+                        "token":    token,
+                        "earliest": _dt(getattr(ri, "EarliestRecording", None)),
+                        "latest":   _dt(getattr(ri, "LatestRecording", None)),
+                    })
+                except Exception:
+                    result.append({"token": token, "earliest": None, "latest": None})
+            return result
+        except Exception as e:
+            log.warning("GetRecordings failed (ONVIF): %s. Tip: Ensure Profile G is supported.", e)
+            return []
+
+    # ── Hikvision ISAPI (Internal Storage / SD Card) ──────────────────────
+
+    def list_hikvision_recordings(self, channel: int = 1) -> list:
+        """
+        Fetches recordings directly from Hikvision SD card via ISAPI.
+        Used for TIER_B devices that lack ONVIF Profile G search.
+        """
+        url = f"http://{self.host}:{self.port}/ISAPI/ContentMgmt/search"
+        # Track 101/102 etc.
+        search_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+        <CMSearchDescription>
+            <searchID>{quote(self.host)}</searchID>
+            <trackList>
+                <trackID>{channel * 100 + 1}</trackID>
+            </trackList>
+            <timeSpanList>
+                <timeSpan>
+                    <startTime>2000-01-01T00:00:00Z</startTime>
+                    <endTime>{dt_obj.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}</endTime>
+                </timeSpan>
+            </timeSpanList>
+            <maxResults>50</maxResults>
+        </CMSearchDescription>"""
+
+        try:
+            res = requests.post(
+                url, 
+                data=search_xml, 
+                auth=HTTPDigestAuth(self.username, self.password),
+                timeout=5
+            )
+            if res.status_code != 200:
+                return []
+
+            root = ET.fromstring(res.text)
+            namespace = {'ns': 'http://www.isapi.org/ver20/XMLSchema'}
+            recordings = []
+            
+            for match in root.findall('.//ns:searchMatchItem', namespace):
+                start = match.find('.//ns:startTime', namespace)
+                end   = match.find('.//ns:endTime', namespace)
+                if start is not None and end is not None:
+                    recordings.append({
+                        "token": f"SD_CARD_{channel}",
+                        "earliest": start.text,
+                        "latest":   end.text,
+                        "source":   "ISAPI"
+                    })
+            return recordings
+        except Exception as e:
+            log.error("Hikvision ISAPI search failed: %s", e)
+            return []
+
+    def find_recording_for_time(self, start_time: dt_obj) -> str | None:
+        """
+        Uses the Search Service to find which RecordingToken contains the given start_time.
+        This is the 'correct' way to handle Profile G playback.
+        """
+        try:
+            search = self._search_svc()
+            # 1. Create a search filter
+            # We search for any recording that was active at start_time
+            search_filter = {
+                "Selection": f"Time >= {start_time.isoformat()}",
+                "MaxMatches": 1,
+                "KeepAliveTime": "PT10S"
+            }
+            # Note: Different cameras expect different Search filter structures.
+            # This is a generic simplified approach.
+            res = search.FindRecordings({"Scope": {"IncludedSources": []}, "MaxMatches": 1})
+            search_token = res.SearchToken
+            
+            # 2. Get results
+            results = search.GetRecordingSearchResults({"SearchToken": search_token, "MaxResults": 1})
+            if results and hasattr(results, "ResultList") and results.ResultList:
+                return str(results.ResultList[0].RecordingToken)
+        except Exception as e:
+            log.debug("ONVIF Search failed (falling back to enumeration): %s", e)
+        
+        # Fallback: Enumerate manually if Search service fails
+        recs = self.list_recordings()
+        for r in recs:
+            if r["earliest"] and r["latest"]:
+                e = dt_obj.fromisoformat(r["earliest"])
+                l = dt_obj.fromisoformat(r["latest"])
+                if e <= start_time <= l:
+                    return r["token"]
+        return recs[0]["token"] if recs else None
+
+    # ── Replay URI (Profile G) ────────────────────────────────────────────
+
+    def get_replay_uri(self, recording_token: str) -> str:
+        """
+        Fetch the RTSP Replay stream URI (Profile G).
+        Requires the NVR/Camera to support Profile G.
+        """
+        svc = self._replay_svc()
+        req = svc.create_type("GetReplayUri")
+        req.RecordingToken = recording_token
+        req.StreamSetup = {
+            "Stream": "RTP-Unicast",
+            "Transport": {"Protocol": "RTSP"},
+        }
+        result = svc.GetReplayUri(req)
+        return self.inject_credentials(str(result.Uri))
+
+    # ── Utility ───────────────────────────────────────────────────────────
+
+    def inject_credentials(self, uri: str) -> str:
+        """Embeds user:pass into the RTSP URI using URL encoding for special characters."""
+        parsed = urlparse(uri)
+        host   = parsed.hostname or self.host
+        port   = parsed.port or 554
+        user   = quote(self.username)
+        pwd    = quote(self.password)
+        return str(urlunparse(parsed._replace(
+            netloc=f"{user}:{pwd}@{host}:{port}"
+        )))
+
+
+def _dt(value) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, dt_obj):
+        return value.isoformat()
+    return str(value)

@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CamVision</title>
+  <style>
+    /* ── Reset & base ── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #0e1117;
+      --bg2: #161b27;
+      --bg3: #1e2535;
+      --border: #2a3347;
+      --border2: #374260;
+      --text: #d4daf0;
+      --text2: #7a8aad;
+      --text3: #4a5878;
+      --accent: #4f8ef7;
+      --accent2: #2d6ee0;
+      --green: #2ecc71;
+      --amber: #f0a500;
+      --red: #e74c3c;
+      --purple: #9b59b6;
+      --teal: #1abc9c;
+      --radius: 8px;
+      --radius2: 12px;
+      --font: system-ui, -apple-system, sans-serif;
+      --mono: 'Courier New', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column
+    }
+
+    /* ── Layout ── */
+    header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg2)
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: .3px
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden
+    }
+
+    .sidebar {
+      width: 300px;
+      min-width: 300px;
+      border-right: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    /* ── Sidebar ── */
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text3);
+      margin-bottom: 10px
+    }
+
+    .cam-list {
+      overflow-y: auto;
+      flex: 1
+    }
+
+    .cam-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background .15s
+    }
+
+    .cam-item:hover {
+      background: var(--bg3)
+    }
+
+    .cam-item.active {
+      background: var(--bg3);
+      border-left: 3px solid var(--accent)
+    }
+
+    .cam-name {
+      font-weight: 500;
+      font-size: 13px
+    }
+
+    .cam-meta {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .4px
+    }
+
+    .badge-nvr {
+      background: rgba(79, 142, 247, .15);
+      color: var(--accent)
+    }
+
+    .badge-dvr {
+      background: rgba(240, 165, 0, .15);
+      color: var(--amber)
+    }
+
+    .badge-xvr {
+      background: rgba(155, 89, 182, .15);
+      color: var(--purple)
+    }
+
+    .badge-ipcam {
+      background: rgba(26, 188, 156, .15);
+      color: var(--teal)
+    }
+
+    .badge-a {
+      background: rgba(46, 204, 113, .12);
+      color: var(--green)
+    }
+
+    .badge-b {
+      background: rgba(240, 165, 0, .12);
+      color: var(--amber)
+    }
+
+    .badge-c {
+      background: rgba(231, 76, 60, .12);
+      color: var(--red)
+    }
+
+    .no-cams {
+      padding: 30px 16px;
+      text-align: center;
+      color: var(--text3);
+      font-size: 13px
+    }
+
+    /* ── Add Camera Form ── */
+    .form-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .15s
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent)
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px
+    }
+
+    .form-label {
+      font-size: 11px;
+      color: var(--text2);
+      margin-bottom: 3px
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column
+    }
+
+    btn,
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      transition: background .15s
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2)
+    }
+
+    .btn-danger {
+      background: rgba(231, 76, 60, .15);
+      color: var(--red);
+      border: 1px solid rgba(231, 76, 60, .3)
+    }
+
+    .btn-danger:hover {
+      background: rgba(231, 76, 60, .25)
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border2)
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg3)
+    }
+
+    .detecting {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text2)
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* ── Content area ── */
+    .content-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    .device-title {
+      font-size: 15px;
+      font-weight: 600
+    }
+
+    .device-sub {
+      font-size: 12px;
+      color: var(--text2)
+    }
+
+    .controls-bar {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px
+    }
+
+    .control-label {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .6px
+    }
+
+    select.inline {
+      width: auto;
+      min-width: 140px
+    }
+
+    input.inline {
+      width: auto
+    }
+
+    input[type=datetime-local] {
+      width: auto;
+      min-width: 180px
+    }
+
+    /* ── Player ── */
+    .player-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 16px;
+      overflow: auto
+    }
+
+    .video-wrap {
+      width: 100%;
+      max-width: 960px;
+      background: #000;
+      border-radius: var(--radius2);
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--border)
+    }
+
+    video {
+      width: 100%;
+      display: block;
+      max-height: 540px;
+      background: #000
+    }
+
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(14, 17, 23, .7)
+    }
+
+    .overlay-icon {
+      font-size: 40px;
+      opacity: .4
+    }
+
+    .overlay-text {
+      font-size: 14px;
+      color: var(--text2)
+    }
+
+    /* ── Chunk navigation ── */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .chunk-info {
+      font-size: 12px;
+      color: var(--text2);
+      font-family: var(--mono);
+      padding: 6px 12px;
+      background: var(--bg2);
+      border-radius: var(--radius);
+      border: 1px solid var(--border)
+    }
+
+    .progress-wrap {
+      width: 100%;
+      max-width: 960px;
+      background: var(--bg2);
+      border-radius: var(--radius2);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--bg3);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width .3s
+    }
+
+    /* ── Recording list ── */
+    .rec-list {
+      width: 100%;
+      max-width: 960px
+    }
+
+    .rec-item {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg2);
+      cursor: pointer;
+      transition: border-color .15s
+    }
+
+    .rec-item:hover {
+      border-color: var(--accent)
+    }
+
+    .rec-time {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text2)
+    }
+
+    /* ── Live URI ── */
+    .uri-box {
+      width: 100%;
+      max-width: 960px;
+      background: var(--bg2);
+      border-radius: var(--radius2);
+      border: 1px solid var(--border);
+      padding: 16px
+    }
+
+    .uri-display {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      word-break: break-all;
+      padding: 10px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      margin-top: 10px;
+      border: 1px solid var(--border)
+    }
+
+    /* ── Tabs ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2)
+    }
+
+    .tab {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s
+    }
+
+    .tab:hover {
+      color: var(--text)
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent)
+    }
+
+    /* ── Messages ── */
+    .msg {
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin: 0 20px
+    }
+
+    .msg-info {
+      background: rgba(79, 142, 247, .1);
+      color: var(--accent);
+      border: 1px solid rgba(79, 142, 247, .2)
+    }
+
+    .msg-err {
+      background: rgba(231, 76, 60, .1);
+      color: var(--red);
+      border: 1px solid rgba(231, 76, 60, .2)
+    }
+
+    .msg-ok {
+      background: rgba(46, 204, 113, .1);
+      color: var(--green);
+      border: 1px solid rgba(46, 204, 113, .2)
+    }
+
+    .status-bar {
+      padding: 6px 20px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text3);
+      font-family: var(--mono)
+    }
+
+    .pass-wrap {
+      position: relative;
+      display: flex;
+      align-items: center
+    }
+
+    .pass-toggle {
+      position: absolute;
+      right: 8px;
+      background: transparent;
+      color: var(--text3);
+      font-size: 10px;
+      padding: 4px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      transition: color .15s
+    }
+
+    .pass-toggle:hover {
+      color: var(--text2);
+      background: var(--bg3);
+      border-color: var(--border2)
+    }
+
+    .no-select {
+      color: var(--text3);
+      text-align: center;
+      padding: 60px 20px
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <img src="images/logo.png" alt="CamVision Logo" style="height:32px;width:32px;object-fit:contain" />
+    <h1>CamVision</h1>
+    <span style="margin-left:auto;font-size:11px;color:var(--text3)">NVR · DVR · XVR · IP CAM</span>
+  </header>
+
+  <main>
+    <!-- ── Sidebar ── -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Add Device</div>
+        <div class="form-grid" id="addForm">
+          <div class="form-group">
+            <div class="form-label">Name</div>
+            <input id="fName" placeholder="Lobby NVR" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">Host / IP</div>
+              <input id="fHost" placeholder="192.168.1.100" />
+            </div>
+            <div class="form-group">
+              <div class="form-label">ONVIF Port</div>
+              <input id="fPort" type="number" value="80" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">RTSP Port</div>
+              <input id="fRtsp" type="number" value="554" />
+            </div>
+            <div class="form-group">
+              <div class="form-label">Username</div>
+              <input id="fUser" value="admin" />
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Password</div>
+            <div class="pass-wrap">
+              <input id="fPass" type="password" placeholder="••••••••" style="padding-right:45px" />
+              <div class="pass-toggle" id="passToggle" onclick="togglePass()">SHOW</div>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="addCamera()">Detect &amp; Add Device</button>
+          <div id="addStatus"></div>
+        </div>
+      </div>
+      <div class="sidebar-section" style="padding:10px 16px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="sidebar-label" style="margin-bottom:0">Devices</div>
+          <button class="btn-ghost" style="padding:4px 8px;font-size:11px" onclick="switchTab('grid_view')">田 Grid
+            View</button>
+        </div>
+      </div>
+      <div class="cam-list" id="camList">
+        <div class="no-cams">No devices added yet</div>
+      </div>
+    </div>
+
+    <!-- ── Content ── -->
+    <div class="content" id="contentArea">
+      <div class="no-select">
+        <img src="images/logo.png" style="width:64px;height:64px;opacity:0.2;margin-bottom:12px;filter:grayscale(1)" />
+        <div>Select a device to begin</div>
+      </div>
+    </div>
+  </main>
+
+  <div class="status-bar" id="statusBar">Ready</div>
+
+  <script>
+    const API = '';
+    let activeCam = null;
+    let activeTab = 'playback';
+    let currentStart = null;
+    let chunkDuration = 30;
+    let blobURL = null;
+    let showPass = false;
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    const $ = id => document.getElementById(id);
+    const status = msg => { $('statusBar').textContent = msg; };
+
+    function togglePass() {
+      showPass = !showPass;
+      const i = $('fPass');
+      const t = $('passToggle');
+      i.type = showPass ? 'text' : 'password';
+      t.textContent = showPass ? 'HIDE' : 'SHOW';
+    }
+
+    function typeBadge(t) {
+      const map = { NVR: 'nvr', DVR: 'dvr', XVR: 'xvr', IP_CAM: 'ipcam' };
+      const cls = map[t] || 'ipcam';
+      return `<span class="badge badge-${cls}">${t}</span>`;
+    }
+    function tierBadge(t) {
+      const map = { 'PROFILE_G': 'a', 'RTSP_FALLBACK': 'b', 'LIVE_ONLY': 'c' };
+      const cls = map[t] || 'c';
+      const labels = { 'PROFILE_G': 'Profile G', 'RTSP_FALLBACK': 'RTSP Fallback', 'LIVE_ONLY': 'Live Only' };
+      return `<span class="badge badge-${cls}">${labels[t] || t}</span>`;
+    }
+
+    // ── Camera list ────────────────────────────────────────────────────────
+
+    async function loadCameras() {
+      try {
+        const res = await fetch(`${API}/cameras`);
+        const cams = await res.json();
+        const list = $('camList');
+        if (!cams.length) {
+          list.innerHTML = '<div class="no-cams">No devices added yet</div>';
+          return;
+        }
+        list.innerHTML = cams.map(c => `
+      <div class="cam-item ${activeCam?.id === c.id ? 'active' : ''}" onclick="selectCam('${c.id}')">
+        <div style="flex:1">
+          <div class="cam-name">${c.name}</div>
+          <div class="cam-meta">${c.host} &nbsp;${typeBadge(c.device_type)} ${tierBadge(c.tier)}</div>
+          <div class="cam-meta" style="margin-top:4px">${c.channels} channel${c.channels !== 1 ? 's' : ''} &nbsp;·&nbsp; ${c.brand}</div>
+        </div>
+        <button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="event.stopPropagation();removeCam('${c.id}')">✕</button>
+      </div>
+    `).join('');
+      } catch (e) { status('Error loading cameras: ' + e.message); }
+    }
+
+    // ── Add camera ─────────────────────────────────────────────────────────
+
+    async function addCamera() {
+      const body = {
+        name: $('fName').value.trim() || 'Camera',
+        host: $('fHost').value.trim(),
+        port: parseInt($('fPort').value) || 80,
+        rtsp_port: parseInt($('fRtsp').value) || 554,
+        username: $('fUser').value,
+        password: $('fPass').value,
+      };
+      if (!body.host) return alert('Enter a host/IP address');
+      $('addStatus').innerHTML = '<div class="detecting"><div class="spinner"></div>Detecting device…</div>';
+      try {
+        const res = await fetch(`${API}/cameras`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        $('addStatus').innerHTML = `<div class="msg msg-ok">✓ ${data.device_type} detected · ${data.channels} channels · tier: ${data.tier}</div>`;
+        loadCameras();
+        setTimeout(() => { $('addStatus').innerHTML = ''; }, 4000);
+      } catch (e) {
+        $('addStatus').innerHTML = `<div class="msg msg-err">✗ ${e.message}</div>`;
+      }
+    }
+
+    async function removeCam(id) {
+      if (!confirm('Remove this device?')) return;
+      await fetch(`${API}/cameras/${id}`, { method: 'DELETE' });
+      if (activeCam?.id === id) { activeCam = null; renderEmpty(); }
+      loadCameras();
+    }
+
+    // ── Select camera ──────────────────────────────────────────────────────
+
+    async function selectCam(id) {
+      const res = await fetch(`${API}/cameras/${id}/info`);
+      activeCam = await res.json();
+      activeCam.id = id;
+      activeTab = 'live_view';
+      loadCameras();
+      renderDevice();
+    }
+
+    // ── Render device UI ───────────────────────────────────────────────────
+
+    async function renderDevice() {
+      const cam = activeCam;
+
+      // Load channels
+      let channels = cam.profiles || [];
+      if (!channels.length) {
+        try {
+          const r = await fetch(`${API}/cameras/${cam.id}/channels`);
+          channels = await r.json();
+          activeCam.profiles = channels;
+        } catch (e) { }
+      }
+
+      // Load recordings (for sidebar info)
+      let recordings = [];
+      let recSummary = {};
+      if (cam.tier === 'PROFILE_G' || (cam.tier === 'RTSP_FALLBACK' && cam.brand === 'hikvision')) {
+        try {
+          const chanEl = $('chanSel');
+          const chanIdx = chanEl ? (chanEl.selectedIndex + 1) : 1;
+          const r = await fetch(`${API}/cameras/${cam.id}/recordings?channel=${chanIdx}`);
+          const d = await r.json();
+          recordings = d.recordings || [];
+          recSummary = d.summary || {};
+        } catch (e) { }
+      }
+
+      const channelOptions = channels.map((ch, i) =>
+        `<option value="${ch.token}" data-idx="${i}">${ch.name}${ch.resolution ? ' (' + ch.resolution + ')' : ''}</option>`
+      ).join('');
+
+      const nowLocal = new Date();
+      nowLocal.setSeconds(0, 0);
+      const defaultDT = nowLocal.toISOString().slice(0, 16);
+
+      $('contentArea').innerHTML = `
+    <div class="content-header">
+      <div>
+        <div class="device-title">${cam.name}</div>
+        <div class="device-sub">${cam.host} &nbsp;|&nbsp; ${cam.manufacturer || ''} ${cam.model || ''} &nbsp;|&nbsp; FW: ${cam.firmware || '—'}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        ${typeBadge(cam.device_type)} ${tierBadge(cam.tier)}
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab ${activeTab === 'live_view' ? 'active' : ''}" onclick="switchTab('live_view')">Live View</div>
+      ${cam.tier !== 'LIVE_ONLY' ? `<div class="tab ${activeTab === 'playback' ? 'active' : ''}" onclick="switchTab('playback')">Playback</div>` : ''}
+      <div class="tab ${activeTab === 'live_uri' ? 'active' : ''}" onclick="switchTab('live_uri')">API Links</div>
+      ${(cam.tier === 'PROFILE_G' || (cam.tier === 'RTSP_FALLBACK' && cam.brand === 'hikvision')) ? `<div class="tab ${activeTab === 'recordings' ? 'active' : ''}" onclick="switchTab('recordings')">Recordings</div>` : ''}
+      <div class="tab ${activeTab === 'info' ? 'active' : ''}" onclick="switchTab('info')">Info</div>
+    </div>
+
+    <div class="controls-bar" id="controlsBar">
+      <div class="control-group">
+        <div class="control-label">Channel</div>
+        <select class="inline" id="chanSel" onchange="onChannelChange()">${channelOptions}</select>
+      </div>
+      <div class="control-group" id="dtGroup" style="display:${cam.tier === 'LIVE_ONLY' ? 'none' : 'flex'}">
+        <div class="control-label">Start Time</div>
+        <input class="inline" type="datetime-local" id="dtPicker" value="${defaultDT}" />
+      </div>
+      <div class="control-group" id="durGroup" style="display:${cam.tier === 'LIVE_ONLY' ? 'none' : 'flex'}">
+        <div class="control-label">Chunk (sec)</div>
+        <select class="inline" id="durSel">
+          <option value="15">15 s</option>
+          <option value="30" selected>30 s</option>
+          <option value="60">1 m</option>
+          <option value="120">2 m</option>
+          <option value="300">5 m</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="tabContent" style="flex:1;overflow:auto"></div>
+  `;
+
+      // Stash recordings for use in recordings tab
+      activeCam._recordings = recordings;
+      activeCam._recSummary = recSummary;
+
+      switchTab(activeTab);
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      // Update tab highlights
+      document.querySelectorAll('.tab').forEach(el => {
+        el.classList.toggle('active', el.textContent.trim().toLowerCase() === tab ||
+          (tab === 'playback' && el.textContent === 'Playback') ||
+          (tab === 'live' && el.textContent === 'Live URI') ||
+          (tab === 'recordings' && el.textContent === 'Recordings') ||
+          (tab === 'info' && el.textContent === 'Info')
+        );
+      });
+
+      const area = $('tabContent');
+      if (tab === 'grid_view') renderGridView(area);
+      else if (tab === 'live_view') renderLiveView(area);
+      else if (tab === 'playback') renderPlayback(area);
+      else if (tab === 'live_uri') renderLiveUri(area);
+      else if (tab === 'recordings') renderRecordings(area);
+      else if (tab === 'info') renderInfo(area);
+    }
+
+    // ── Grid View Monitor ──────────────────────────────────────────────────
+
+    async function renderGridView(area) {
+      activeCam = null;
+      loadCameras();
+
+      const res = await fetch(`${API}/cameras`);
+      const cams = await res.json();
+
+      if (!cams.length) {
+        area.innerHTML = '<div class="no-select">No cameras found to monitor</div>';
+        return;
+      }
+
+      area.innerHTML = `
+    <div class="content-header">
+      <div class="device-title">Multi-Camera Monitor</div>
+      <div style="margin-left:auto;font-size:12px;color:var(--text2)">${cams.length} devices active</div>
+    </div>
+    <div style="flex:1;overflow:auto;padding:20px">
+      <div id="monitorGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));gap:16px">
+        ${cams.map(c => `
+          <div class="video-wrap" style="background:#000">
+            <video id="mon_${c.id}" controls autoplay muted style="width:100%;aspect-ratio:16/9"></video>
+            <div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.6);padding:4px 8px;border-radius:4px;font-size:11px;pointer-events:none">
+              ${c.name}
+            </div>
+            <div id="ov_${c.id}" class="video-overlay"><div class="spinner"></div></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+      // Start all streams
+      cams.forEach(c => {
+        const vid = document.getElementById(`mon_${c.id}`);
+        const ov = document.getElementById(`ov_${c.id}`);
+        vid.src = `${API}/cameras/${c.id}/live-stream`;
+        vid.onplaying = () => { ov.style.display = 'none'; };
+      });
+    }
+
+    // ── Live View tab ──────────────────────────────────────────────────────
+
+    function renderLiveView(area) {
+      const chanEl = $('chanSel');
+      const profile = chanEl ? chanEl.value : (activeCam.profiles?.[0]?.token || '');
+      const streamUrl = `${API}/cameras/${activeCam.id}/live-stream?profile_token=${encodeURIComponent(profile)}`;
+
+      area.innerHTML = `
+    <div class="player-area">
+      <div class="video-wrap" style="max-width:900px">
+        <video id="liveVideoEl" controls autoplay muted style="width:100%"></video>
+        <div class="video-overlay" id="liveVideoOverlay" style="display:none">
+          <div class="spinner"></div>
+          <div class="overlay-text">Connecting to camera...</div>
+        </div>
+      </div>
+      <div class="msg msg-info" style="width:100%;max-width:900px;display:flex;align-items:center;gap:10px">
+        <div class="dot"></div>
+        <span>Real-time stream directly from device. Transmuxed to fragmented MP4.</span>
+      </div>
+    </div>
+  `;
+
+      const vid = $('liveVideoEl');
+      vid.src = streamUrl;
+    }
+
+    // ── Playback tab ───────────────────────────────────────────────────────
+
+    function renderPlayback(area) {
+      const tier = activeCam.tier;
+      area.innerHTML = `
+    <div class="player-area">
+      <div class="video-wrap" style="max-width:900px">
+        <video id="videoEl" controls preload="none"></video>
+        <div class="video-overlay" id="videoOverlay">
+          <div class="overlay-icon">▶</div>
+          <div class="overlay-text">Set a time and click Fetch Chunk</div>
+        </div>
+      </div>
+
+      <div class="nav-bar">
+        <button class="btn-ghost" onclick="stepChunk(-1)">◀ Prev</button>
+        <button class="btn-primary" onclick="fetchChunk()">⬇ Fetch Chunk</button>
+        <button class="btn-ghost" onclick="stepChunk(1)">Next ▶</button>
+        <div class="chunk-info" id="chunkInfo">—</div>
+      </div>
+
+      ${tier === 'RTSP_FALLBACK' ? `
+        <div class="msg msg-info" style="width:100%;max-width:900px">
+          RTSP Fallback mode — Fetching directly from the camera's internal storage (SD Card/HDD).
+          No data is stored on this hub server.
+        </div>`: ''
+        }
+    </div>
+  `;
+    }
+
+    async function fetchChunk(startOverride) {
+      const cam = activeCam;
+      const dtVal = startOverride || $('dtPicker')?.value;
+      const dur = parseInt($('durSel')?.value) || 30;
+      const chanEl = $('chanSel');
+      const profile = chanEl ? chanEl.value : (cam.profiles?.[0]?.token || '');
+
+      if (!dtVal) return alert('Pick a start time');
+      currentStart = new Date(dtVal);
+      chunkDuration = dur;
+
+      // Build URL
+      const start = currentStart.toISOString();
+      let url = `${API}/cameras/${cam.id}/chunk?start=${encodeURIComponent(start)}&duration=${dur}&profile_token=${encodeURIComponent(profile)}`;
+
+      // For TIER_A: pass recording token if available
+      const recs = cam._recordings || [];
+      if (cam.tier === 'PROFILE_G' && recs.length) {
+        url += `&recording_token=${encodeURIComponent(recs[0].token)}`;
+      }
+
+      // Channel number fallback for TIER_B
+      const chanIdx = chanEl ? chanEl.selectedIndex : 0;
+      url += `&channel=${chanIdx + 1}`;
+
+      $('chunkInfo').textContent = `Fetching ${dur}s from ${currentStart.toLocaleTimeString()}…`;
+      $('videoOverlay').innerHTML = `
+    <div class="spinner" style="width:30px;height:30px;border-width:3px"></div>
+    <div class="overlay-text">Pulling chunk from camera…</div>`;
+      status(`Fetching chunk: ${start} +${dur}s`);
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+          throw new Error(err.detail || res.statusText);
+        }
+
+        if (blobURL) URL.revokeObjectURL(blobURL);
+        const blob = await res.blob();
+        blobURL = URL.createObjectURL(blob);
+
+        const vid = $('videoEl');
+        vid.src = blobURL;
+        $('videoOverlay').style.display = 'none';
+        vid.play().catch(() => { });
+
+        const end = new Date(currentStart.getTime() + dur * 1000);
+        $('chunkInfo').textContent =
+          `${currentStart.toLocaleTimeString()} → ${end.toLocaleTimeString()} (${dur}s)`;
+        status(`Chunk loaded — ${Math.round(blob.size / 1024)} KB`);
+      } catch (e) {
+        $('videoOverlay').innerHTML = `
+      <div class="overlay-icon" style="color:var(--red)">⚠</div>
+      <div class="overlay-text" style="color:var(--red)">${e.message}</div>`;
+        $('chunkInfo').textContent = 'Error';
+        status('Chunk error: ' + e.message);
+      }
+    }
+
+    function stepChunk(dir) {
+      if (!currentStart) return fetchChunk();
+      const next = new Date(currentStart.getTime() + dir * chunkDuration * 1000);
+      // Update picker
+      const picker = $('dtPicker');
+      if (picker) picker.value = next.toISOString().slice(0, 16);
+      currentStart = next;
+      fetchChunk(next.toISOString().slice(0, 16));
+    }
+
+    // ── Live URI tab ───────────────────────────────────────────────────────
+
+    function renderLiveUri(area) {
+      area.innerHTML = `
+    <div class="player-area">
+      <div class="uri-box">
+        <div style="font-weight:500;margin-bottom:4px">Full Stream Fetch (Local Storage)</div>
+        <div style="font-size:12px;color:var(--text2)">
+          The camera stores recordings by date/time. Use the Playback tab to view 
+          or the live URI below to bridge the stream to external NVS/VMS systems.
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-primary" onclick="getLiveUri()">Get Live URI</button>
+          <button class="btn-ghost" onclick="copyUri()">Copy</button>
+        </div>
+        <div class="uri-display" id="liveUri">—</div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text3)">
+          Open in VLC: <code style="color:var(--text2)">vlc [URI]</code> &nbsp;·&nbsp;
+          ffplay: <code style="color:var(--text2)">ffplay -rtsp_transport tcp [URI]</code>
+        </div>
+      </div>
+    </div>
+  `;
+    }
+
+    async function getLiveUri() {
+      const chanEl = $('chanSel');
+      const token = chanEl ? chanEl.value : '';
+      try {
+        const r = await fetch(`${API}/cameras/${activeCam.id}/live-uri?profile_token=${encodeURIComponent(token)}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail);
+        $('liveUri').textContent = d.uri;
+        status('Live URI fetched');
+      } catch (e) {
+        $('liveUri').textContent = 'Error: ' + e.message;
+        status('Error: ' + e.message);
+      }
+    }
+
+    function copyUri() {
+      const uri = $('liveUri')?.textContent;
+      if (uri && uri !== '—') {
+        navigator.clipboard.writeText(uri);
+        status('URI copied to clipboard');
+      }
+    }
+
+    // ── Recordings tab (TIER_A only) ───────────────────────────────────────
+
+    function renderRecordings(area) {
+      const recs = activeCam._recordings || [];
+      const summary = activeCam._recSummary || {};
+
+      area.innerHTML = `
+    <div class="player-area">
+      ${summary.data_from ? `
+        <div class="msg msg-info" style="width:100%;max-width:900px">
+          Storage range: <strong>${summary.data_from?.slice(0, 16) || '—'}</strong>
+          → <strong>${summary.data_until?.slice(0, 16) || '—'}</strong>
+          &nbsp;·&nbsp; ${summary.number_recordings || 0} recording slot(s)
+        </div>` : ''
+        }
+      <div class="rec-list">
+        ${recs.length === 0
+          ? '<div class="msg msg-info">No recordings found. The device may not have any footage stored, or its recording service returned empty results.</div>'
+          : recs.map(r => `
+            <div class="rec-item" onclick="playRecording('${r.token}','${r.earliest || ''}')">
+              <div>
+                <div style="font-weight:500;font-size:13px">Token: ${r.token}</div>
+                <div class="rec-time">${r.earliest?.slice(0, 16) || '?'} → ${r.latest?.slice(0, 16) || '?'}</div>
+              </div>
+              <button class="btn-primary" style="font-size:12px;padding:6px 12px">Play ▶</button>
+            </div>
+          `).join('')
+        }
+      </div>
+    </div>
+  `;
+    }
+
+    function playRecording(token, earliest) {
+      // Switch to playback tab and pre-fill the recording start time
+      activeTab = 'playback';
+      switchTab('playback');
+      if (earliest) {
+        const picker = $('dtPicker');
+        if (picker) picker.value = earliest.slice(0, 16);
+      }
+      // Override recording token for chunk request
+      activeCam._selectedRecToken = token;
+      fetchChunk();
+    }
+
+    // ── Info tab ───────────────────────────────────────────────────────────
+
+    function renderInfo(area) {
+      const cam = activeCam;
+      const rows = [
+        ['Name', cam.name],
+        ['Host', cam.host],
+        ['ONVIF Port', cam.port],
+        ['RTSP Port', cam.rtsp_port || 554],
+        ['Device Type', cam.device_type],
+        ['Brand', cam.brand],
+        ['Manufacturer', cam.manufacturer || '—'],
+        ['Model', cam.model || '—'],
+        ['Firmware', cam.firmware || '—'],
+        ['Serial', cam.serial || '—'],
+        ['Tier', cam.tier],
+        ['Profile G', cam.has_recording && cam.has_replay ? 'Yes ✓' : 'No'],
+        ['Channels', (cam.profiles || []).length],
+      ];
+      area.innerHTML = `
+    <div class="player-area">
+      <div style="width:100%;max-width:600px;background:var(--bg2);border-radius:var(--radius2);border:1px solid var(--border);overflow:hidden">
+        ${rows.map(([k, v]) => `
+          <div style="display:flex;padding:9px 14px;border-bottom:1px solid var(--border)">
+            <div style="width:140px;color:var(--text3);font-size:12px">${k}</div>
+            <div style="font-size:13px;font-family:${typeof v === 'string' && v.match(/\d{4}/) ? 'var(--mono)' : 'inherit'}">${v}</div>
+          </div>`
+      ).join('')}
+        <div style="padding:14px 14px 6px">
+          <div class="sidebar-label">Channels / Profiles</div>
+        </div>
+        ${(cam.profiles || []).map((p, i) => `
+          <div style="display:flex;padding:8px 14px;border-bottom:1px solid var(--border);gap:12px;align-items:center">
+            <div style="font-size:12px;color:var(--text3)">CH${i + 1}</div>
+            <div style="font-size:13px;flex:1">${p.name}</div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono)">${p.resolution || '—'}</div>
+            <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${p.token}</div>
+          </div>`
+      ).join('')}
+      </div>
+    </div>
+  `;
+    }
+
+    function onChannelChange() {
+      if (activeTab === 'live_view') {
+        renderLiveView($('tabContent'));
+      } else if (activeTab === 'live_uri') {
+        const el = $('liveUri');
+        if (el) el.textContent = '—';
+      }
+      // Refresh recordings list if in recordings tab
+      if (activeTab === 'recordings') {
+        renderDevice();
+      }
+    }
+
+    function renderEmpty() {
+      $('contentArea').innerHTML = `
+    <div class="no-select">
+      <img src="images/logo.png" style="width:64px;height:64px;opacity:0.2;margin-bottom:12px;filter:grayscale(1)" />
+      <div>Select a device to begin</div>
+    </div>`;
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────
+    loadCameras();
+  </script>
+</body>
+
+</html>
