@@ -46,26 +46,49 @@ class ONVIFClient:
         """
         if not self._cam:
             return
-        devmgmt = self._cam.create_devicemgmt_service()
-        system_date = devmgmt.GetSystemDateAndTime()
-        
-        # Extract UTC time from camera response
-        utc = system_date.UTCDateTime
-        cam_utc = dt_obj(
-            utc.Date.Year, utc.Date.Month, utc.Date.Day,
-            utc.Time.Hour, utc.Time.Minute, utc.Time.Second,
-            tzinfo=timezone.utc
-        )
-        
-        # Calculate drift
-        now_utc = dt_obj.now(timezone.utc)
-        diff = cam_utc - now_utc
-        
-        if abs(diff.total_seconds()) > 5:
-            log.info("Time drift detected: %ds. Adjusting authentication headers.", diff.total_seconds())
-            # We tell the ONVIF client to adjust its future timestamps by this offset
-            if self._cam:
-                self._cam.to_utc_timestamp = lambda: dt_obj.now(timezone.utc) + diff
+        try:
+            devmgmt = self._cam.create_devicemgmt_service()
+            system_date = devmgmt.GetSystemDateAndTime()
+            
+            # 1. Try UTCDateTime first
+            utc = getattr(system_date, "UTCDateTime", None)
+            if utc and getattr(utc, "Date", None) and getattr(utc, "Time", None):
+                cam_utc = dt_obj(
+                    utc.Date.Year, utc.Date.Month, utc.Date.Day,
+                    utc.Time.Hour, utc.Time.Minute, utc.Time.Second,
+                    tzinfo=timezone.utc
+                )
+            else:
+                # 2. Fallback to LocalDateTime (less ideal, but better than crashing)
+                local = getattr(system_date, "LocalDateTime", None)
+                if local and getattr(local, "Date", None) and getattr(local, "Time", None):
+                    # We assume the camera's local time is what it expects in the header
+                    # even if it's not actually UTC. WS-Security is picky about the mismatch.
+                    cam_utc = dt_obj(
+                        local.Date.Year, local.Date.Month, local.Date.Day,
+                        local.Time.Hour, local.Time.Minute, local.Time.Second,
+                        tzinfo=timezone.utc
+                    )
+                else:
+                    log.warning("Neither UTCDateTime nor LocalDateTime found on camera. Authentication may fail.")
+                    return
+
+            # Calculate drift
+            now_utc = dt_obj.now(timezone.utc)
+            diff = cam_utc - now_utc
+            
+            if abs(diff.total_seconds()) > 5:
+                log.info("Time drift detected: %ds. Adjusting authentication headers.", diff.total_seconds())
+                # For onvif-zeep, the offset should be applied to the camera's internal clock
+                # or we just rely on the fact that some versions allow monkeypatching.
+                # A more standard way in zeep is to adjust the timestamp in the security header, 
+                # but onvif-zeep simplifies this.
+                try:
+                    self._cam.to_utc_timestamp = lambda: dt_obj.now(timezone.utc) + diff
+                except Exception:
+                    pass
+        except Exception as e:
+            log.warning("Failed to sync time with camera: %s", e)
 
     def _media_svc(self):
         if not self._media:
@@ -102,20 +125,41 @@ class ONVIFClient:
     # ── Profiles / Channels ───────────────────────────────────────────────
 
     def get_profiles(self) -> list:
-        """Fetch all video profiles metadata."""
-        profiles = self._media_svc().GetProfiles()
-        result = []
-        for p in profiles:
-            token = str(getattr(p, "token", ""))
-            name  = str(getattr(p, "Name", token))
-            res   = ""
-            vec = getattr(p, "VideoEncoderConfiguration", None)
-            if vec:
-                r = getattr(vec, "Resolution", None)
-                if r:
-                    res = f"{getattr(r,'Width','')}x{getattr(r,'Height','')}"
-            result.append({"token": token, "name": name, "resolution": res})
-        return result
+        """Fetch all video profiles metadata with resolution info."""
+        try:
+            profiles = self._media_svc().GetProfiles()
+            result = []
+            for p in profiles:
+                token = str(getattr(p, "token", ""))
+                name  = str(getattr(p, "Name", token))
+                res   = ""
+                
+                # Try to find resolution in VideoEncoderConfiguration
+                vec = getattr(p, "VideoEncoderConfiguration", None)
+                if vec:
+                    r = getattr(vec, "Resolution", None)
+                    if r:
+                        w = getattr(r, "Width", "")
+                        h = getattr(r, "Height", "")
+                        if w and h:
+                            res = f"{w}x{h}"
+                
+                # Fallback for Media2 style resolution
+                if not res:
+                    cfg = getattr(p, "Configurations", None)
+                    if cfg and hasattr(cfg, "VideoEncoder"):
+                        ve = cfg.VideoEncoder
+                        if hasattr(ve, "Resolution"):
+                            w = getattr(ve.Resolution, "Width", "")
+                            h = getattr(ve.Resolution, "Height", "")
+                            if w and h:
+                                res = f"{w}x{h}"
+                
+                result.append({"token": token, "name": name, "resolution": res})
+            return result
+        except Exception as e:
+            log.warning("get_profiles failed: %s", e)
+            return []
 
     # ── Live stream ───────────────────────────────────────────────────────
 
@@ -239,21 +283,23 @@ class ONVIFClient:
         try:
             search = self._search_svc()
             # 1. Create a search filter
-            # We search for any recording that was active at start_time
             search_filter = {
-                "Selection": f"Time >= {start_time.isoformat()}",
+                "SearchScope": {
+                    "IncludedSources": [],
+                    "RecordingInformationFilter": f"Time >= {start_time.isoformat()}"
+                },
                 "MaxMatches": 1,
                 "KeepAliveTime": "PT10S"
             }
-            # Note: Different cameras expect different Search filter structures.
-            # This is a generic simplified approach.
-            res = search.FindRecordings({"Scope": {"IncludedSources": []}, "MaxMatches": 1})
+            res = search.FindRecordings(search_filter)
             search_token = res.SearchToken
             
             # 2. Get results
             results = search.GetRecordingSearchResults({"SearchToken": search_token, "MaxResults": 1})
-            if results and hasattr(results, "ResultList") and results.ResultList:
-                return str(results.ResultList[0].RecordingToken)
+            if results and hasattr(results, "ResultList") and results.ResultList and len(getattr(results.ResultList, "RecordingSearchResult", [])) > 0:
+                res_item = results.ResultList.RecordingSearchResult[0]
+                if hasattr(res_item, "RecordingToken"):
+                    return str(res_item.RecordingToken)
         except Exception as e:
             log.debug("ONVIF Search failed (falling back to enumeration): %s", e)
         
@@ -261,10 +307,15 @@ class ONVIFClient:
         recs = self.list_recordings()
         for r in recs:
             if r["earliest"] and r["latest"]:
-                e = dt_obj.fromisoformat(r["earliest"])
-                l = dt_obj.fromisoformat(r["latest"])
-                if e <= start_time <= l:
-                    return r["token"]
+                try:
+                    # Normalize both to UTC for safe comparison
+                    e = dt_obj.fromisoformat(r["earliest"]).replace(tzinfo=timezone.utc)
+                    l = dt_obj.fromisoformat(r["latest"]).replace(tzinfo=timezone.utc)
+                    s = start_time.astimezone(timezone.utc)
+                    if e <= s <= l:
+                        return r["token"]
+                except Exception:
+                    continue
         return recs[0]["token"] if recs else None
 
     # ── Replay URI (Profile G) ────────────────────────────────────────────
@@ -288,14 +339,19 @@ class ONVIFClient:
 
     def inject_credentials(self, uri: str) -> str:
         """Embeds user:pass into the RTSP URI using URL encoding for special characters."""
-        parsed = urlparse(uri)
-        host   = parsed.hostname or self.host
-        port   = parsed.port or 554
-        user   = quote(self.username)
-        pwd    = quote(self.password)
-        return str(urlunparse(parsed._replace(
-            netloc=f"{user}:{pwd}@{host}:{port}"
-        )))
+        if not uri or not isinstance(uri, str):
+            return ""
+        try:
+            parsed = urlparse(uri)
+            host   = parsed.hostname or self.host
+            port   = parsed.port or 554
+            user   = quote(self.username)
+            pwd    = quote(self.password)
+            return str(urlunparse(parsed._replace(
+                netloc=f"{user}:{pwd}@{host}:{port}"
+            )))
+        except Exception:
+            return uri
 
 
 def _dt(value) -> str | None:

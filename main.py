@@ -104,6 +104,7 @@ def list_cameras():
             "brand":       c.get("brand", "generic"),
             "tier":        c.get("tier", "LIVE_ONLY"),
             "channels":    len(c.get("profiles", [])),
+            "primary_res": c.get("profiles", [{}])[0].get("resolution", "")
         }
         for cid, c in CAMERAS.items()
     ]
@@ -216,6 +217,7 @@ def live_uri(
 async def live_stream(
     cam_id:        str,
     profile_token: Optional[str] = Query(None),
+    low_res:       bool          = Query(False),
 ):
     """
     Continuous live stream in fragmented MP4 format.
@@ -231,11 +233,12 @@ async def live_stream(
         client = _make_client(cam)
         uri = client.get_live_uri(token)
         return StreamingResponse(
-            stream_live(uri),
+            stream_live(uri, low_res=low_res),
             media_type="video/mp4",
             headers={
                 "Cache-Control": "no-cache, no-store",
                 "Connection": "keep-alive",
+                "Accept-Ranges": "none",
             }
         )
     except Exception as e:
@@ -302,6 +305,7 @@ async def get_chunk(
     recording_token: Optional[str]   = Query(None, description="ONVIF recording token (TIER_A only)"),
     channel:         int             = Query(1,    description="1-based channel number (TIER_B fallback)"),
     subtype:         int             = Query(0,    description="0=main stream, 1=sub stream"),
+    low_res:         bool            = Query(False, description="Downscale to 360p for low bandwidth"),
 ):
     """
     Stream a time-bounded MP4 chunk pulled from the camera's own storage.
@@ -384,7 +388,7 @@ async def get_chunk(
         raise HTTPException(500, "Could not construct RTSP URI")
 
     return StreamingResponse(
-        stream_chunk(rtsp_uri, seek_ts, duration, seek_mode),
+        stream_chunk(rtsp_uri, seek_ts, duration, seek_mode, low_res=low_res),
         media_type="video/mp4",
         headers={
             "Content-Disposition": f'inline; filename="chunk_{start}_{duration}s.mp4"',
@@ -405,3 +409,4 @@ if (FRONTEND / "index.html").exists():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

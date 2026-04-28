@@ -29,18 +29,10 @@ def _build_cmd(
     start_time: str | None,
     duration: int,
     seek_mode: str = "input",   # "input" = fast seek before open, "output" = precise
+    low_res: bool = False,
 ) -> list[str]:
     """
     Build the ffmpeg command list.
-
-    seek_mode
-    ---------
-    "input"   → -ss before -i  : fast, may be off by a keyframe (~1-2 s)
-                Used for TIER_B where the URI already pins the start time,
-                so we just need duration limiting.
-    "output"  → -ss after -i   : frame-accurate seek (re-reads from stream start)
-                Used for TIER_A ONVIF replay where the URI is open-ended.
-    "none"    → no seek, just cap duration (TIER_C live or short clips)
     """
     cmd = [
         "ffmpeg",
@@ -61,7 +53,16 @@ def _build_cmd(
         "-t",  str(duration),
         "-map", "0:v:0",         # Explicitly map the first video stream
         "-map", "0:a?",           # Map audio ONLY if it exists (?)
-        "-c:v", "copy",          # fast passthrough for video
+        "-c:v", "libx264",       # Transcode to H.264 for browser compatibility
+        "-preset", "ultrafast",  # Ensure no delay in chunk generation
+        "-tune", "zerolatency",
+    ]
+
+    if low_res:
+        cmd += ["-vf", "scale=640:-2"]
+
+    cmd += [
+        "-pix_fmt", "yuv420p",   # Standard web pixel format
         "-c:a", "aac",           # convert audio to web-friendly AAC if present
         "-f",  "mp4",
         "-movflags", "frag_keyframe+empty_moov+faststart",
@@ -75,6 +76,7 @@ async def stream_chunk(
     start_time: str | None,
     duration: int,
     seek_mode: str = "input",
+    low_res: bool = False,
 ):
     """
     Async generator.  Yields raw MP4 bytes from ffmpeg stdout.
@@ -88,7 +90,7 @@ async def stream_chunk(
     seek_mode   : see _build_cmd()
     """
     duration = min(duration, MAX_CHUNK_SECONDS)
-    cmd = _build_cmd(rtsp_uri, start_time, duration, seek_mode)
+    cmd = _build_cmd(rtsp_uri, start_time, duration, seek_mode,"low_res")
 
     log.info("ffmpeg seek_mode=%s start=%s dur=%ds", seek_mode, start_time, duration)
 
@@ -105,6 +107,7 @@ async def stream_chunk(
     total = 0
     try:
         while True:
+            assert proc.stdout is not None
             chunk = await proc.stdout.read(READ_SIZE)
             if not chunk:
                 break

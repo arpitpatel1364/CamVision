@@ -737,7 +737,7 @@
         <div style="flex:1">
           <div class="cam-name">${c.name}</div>
           <div class="cam-meta">${c.host} &nbsp;${typeBadge(c.device_type)} ${tierBadge(c.tier)}</div>
-          <div class="cam-meta" style="margin-top:4px">${c.channels} channel${c.channels !== 1 ? 's' : ''} &nbsp;·&nbsp; ${c.brand}</div>
+          <div class="cam-meta" style="margin-top:4px">${c.channels} channel${c.channels !== 1 ? 's' : ''} &nbsp;·&nbsp; ${c.primary_res ? c.primary_res + ' · ' : ''}${c.brand}</div>
         </div>
         <button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="event.stopPropagation();removeCam('${c.id}')">✕</button>
       </div>
@@ -824,9 +824,10 @@
         `<option value="${ch.token}" data-idx="${i}">${ch.name}${ch.resolution ? ' (' + ch.resolution + ')' : ''}</option>`
       ).join('');
 
-      const nowLocal = new Date();
-      nowLocal.setSeconds(0, 0);
-      const defaultDT = nowLocal.toISOString().slice(0, 16);
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const localISOTime = new Date(now - offset).toISOString().slice(0, 16);
+      const defaultDT = localISOTime;
 
       $('contentArea').innerHTML = `
     <div class="content-header">
@@ -851,6 +852,11 @@
       <div class="control-group">
         <div class="control-label">Channel</div>
         <select class="inline" id="chanSel" onchange="onChannelChange()">${channelOptions}</select>
+      </div>
+      <div class="control-group">
+        <label style="display:flex;align-items:center;cursor:pointer;font-size:12px;opacity:0.8">
+          <input type="checkbox" id="lowResCheck" onchange="onChannelChange()" style="width:16px;height:16px;margin-right:6px"> Low Bandwidth
+        </label>
       </div>
       <div class="control-group" id="dtGroup" style="display:${cam.tier === 'LIVE_ONLY' ? 'none' : 'flex'}">
         <div class="control-label">Start Time</div>
@@ -947,7 +953,8 @@
     function renderLiveView(area) {
       const chanEl = $('chanSel');
       const profile = chanEl ? chanEl.value : (activeCam.profiles?.[0]?.token || '');
-      const streamUrl = `${API}/cameras/${activeCam.id}/live-stream?profile_token=${encodeURIComponent(profile)}`;
+      const lowRes = document.getElementById('lowResCheck')?.checked || false;
+      const streamUrl = `${API}/cameras/${activeCam.id}/live-stream?profile_token=${encodeURIComponent(profile)}&low_res=${lowRes}`;
 
       area.innerHTML = `
     <div class="player-area">
@@ -1012,8 +1019,8 @@
       chunkDuration = dur;
 
       // Build URL
-      const start = currentStart.toISOString();
-      let url = `${API}/cameras/${cam.id}/chunk?start=${encodeURIComponent(start)}&duration=${dur}&profile_token=${encodeURIComponent(profile)}`;
+      const lowRes = document.getElementById('lowResCheck')?.checked || false;
+      let url = `${API}/cameras/${cam.id}/chunk?start=${encodeURIComponent(start)}&duration=${dur}&profile_token=${encodeURIComponent(profile)}&low_res=${lowRes}`;
 
       // For TIER_A: pass recording token if available
       const recs = cam._recordings || [];
