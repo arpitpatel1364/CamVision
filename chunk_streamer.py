@@ -90,7 +90,7 @@ async def stream_chunk(
     seek_mode   : see _build_cmd()
     """
     duration = min(duration, MAX_CHUNK_SECONDS)
-    cmd = _build_cmd(rtsp_uri, start_time, duration, seek_mode,"low_res")
+    cmd = _build_cmd(rtsp_uri, start_time, duration, seek_mode,low_res)
 
     log.info("ffmpeg seek_mode=%s start=%s dur=%ds", seek_mode, start_time, duration)
 

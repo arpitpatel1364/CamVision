@@ -84,7 +84,7 @@ class ONVIFClient:
                 # A more standard way in zeep is to adjust the timestamp in the security header, 
                 # but onvif-zeep simplifies this.
                 try:
-                    self._cam.to_utc_timestamp = lambda: dt_obj.now(timezone.utc) + diff
+                    self. cam.to_utc_timestamp = lambda: dt_obj.now(timezone.utc) + diff
                 except Exception:
                     pass
         except Exception as e:
