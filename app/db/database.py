@@ -36,7 +36,6 @@ def init_db():
     )
     """)
     
-    
     # Users table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
