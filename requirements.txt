@@ -5,3 +5,6 @@ onvif-zeep
 zeep
 requests
 python-multipart
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]

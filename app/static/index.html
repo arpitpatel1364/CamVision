@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CamVision Advance | Enterprise VMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --bg: #000;
+            --bg-elevated: #0a0a0a;
+            --bg-card: #111;
+            --border: #222;
+            --text: #eee;
+            --text-dim: #888;
+            --error: #ef4444;
+            --success: #22c55e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ── Glassmorphism & Elevations ────────────────────────────────── */
+        .glass {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Header ─────────────────────────────────────────────────────── */
+        header {
+            height: 64px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            background: var(--bg-elevated);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #fff;
+        }
+
+        .brand img { width: 32px; height: 32px; }
+        .brand h1 { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+
+        /* ── Sidebar ────────────────────────────────────────────────────── */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            height: calc(100vh - 64px);
+        }
+
+        .sidebar {
+            background: var(--bg-elevated);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        .cam-list { flex: 1; overflow-y: auto; padding: 0 12px; }
+        .cam-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+        }
+        .cam-item:hover { background: rgba(255,255,255,0.05); }
+        .cam-item.active { background: var(--accent); color: #fff; }
+        
+        .cam-icon { font-size: 20px; opacity: 0.8; }
+        .cam-info { flex: 1; }
+        .cam-name { font-weight: 600; font-size: 14px; }
+        .cam-status { font-size: 11px; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+        /* ── Content ────────────────────────────────────────────────────── */
+        .content {
+            background: #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .video-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        video { width: 100%; height: 100%; object-fit: contain; }
+        
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* ── Timeline ───────────────────────────────────────────────────── */
+        .controls-bar {
+            padding: 20px;
+            background: var(--bg-elevated);
+            border-top: 1px solid var(--border);
+        }
+
+        .timeline-track {
+            height: 40px;
+            background: #111;
+            border-radius: 6px;
+            position: relative;
+            cursor: pointer;
+            margin: 12px 0;
+            overflow: hidden;
+        }
+
+        .timeline-cursor {
+            position: absolute;
+            top: 0; bottom: 0; width: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            z-index: 5;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            top: 10px; bottom: 10px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 2px;
+        }
+
+        /* ── Buttons ────────────────────────────────────────────────────── */
+        .btn {
+            height: 40px;
+            padding: 0 20px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-glow); }
+        .btn-secondary { background: #222; color: #fff; }
+        .btn-secondary:hover { background: #333; }
+
+        /* ── Feed ───────────────────────────────────────────────────────── */
+        .event-feed {
+            background: var(--bg-elevated);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feed-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .event-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .event-thumb {
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .event-type { font-weight: 700; font-size: 12px; color: var(--accent); text-transform: uppercase; }
+        .event-time { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+        /* ── Modals ─────────────────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal {
+            width: 400px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+        .form-group input {
+            width: 100%;
+            height: 40px;
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #fff;
+            padding: 0 12px;
+            outline: none;
+        }
+        .form-group input:focus { border-color: var(--accent); }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .animate-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="#" class="brand">
+            <img src="images/logo.png" alt="CamVision Logo">
+            <h1>CamVision Advance</h1>
+        </a>
+        <div style="margin-left:auto; display:flex; gap:16px; align-items:center">
+            <button class="btn btn-secondary" onclick="switchView('grid')">GRID VIEW</button>
+            <button class="btn btn-secondary" onclick="switchView('player')">PLAYER</button>
+            <div style="width:1px; height:24px; background:var(--border)"></div>
+            <div id="userProfile" style="display:flex; align-items:center; gap:10px">
+                <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700">A</div>
+                <span id="usernameDisplay" style="font-weight:600; font-size:13px">Admin</span>
+            </div>
+            <button class="btn btn-secondary" style="width:40px; padding:0; justify-content:center" onclick="logout()">🏃</button>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">Active Devices</div>
+            <div class="cam-list" id="camList"></div>
+            <div style="padding:16px; border-top:1px solid var(--border)">
+                <button class="btn btn-primary" style="width:100%" onclick="showModal('addCamModal')">＋ ADD NEW DEVICE</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <section class="content">
+            <!-- Player View -->
+            <div id="playerView" style="flex:1; display:flex; flex-direction:column">
+                <div class="video-container">
+                    <video id="mainVideo" autoplay muted playsinline></video>
+                    <div id="videoOverlay" class="video-overlay" style="display:none">
+                        <div class="loader"></div>
+                    </div>
+                    <!-- Detection Canvas Overlay -->
+                    <canvas id="detectionCanvas" style="position:absolute; inset:0; pointer-events:none"></canvas>
+                </div>
+
+                <div class="controls-bar">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                        <span style="font-weight:700; font-size:12px; letter-spacing:1px">ARCHIVE TIMELINE</span>
+                        <div style="display:flex; gap:8px; align-items:center">
+                            <input type="datetime-local" id="dtPicker" class="glass" style="height:32px; border-radius:4px; padding:0 8px; border:1px solid var(--border); color:#fff">
+                            <button class="btn btn-primary" style="height:32px; font-size:11px" onclick="fetchArchive()">SEEK</button>
+                        </div>
+                    </div>
+                    <div class="timeline-track" id="timelineTrack" onclick="seekTimeline(event)">
+                        <div class="timeline-cursor" id="timelineCursor"></div>
+                        <div id="timelineSegments"></div>
+                    </div>
+                    <div style="display:flex; justify-content:center; gap:16px">
+                        <button class="btn btn-secondary" onclick="step(-10)">-10s</button>
+                        <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">PAUSE</button>
+                        <button class="btn btn-secondary" onclick="step(10)">+10s</button>
+                        <button class="btn btn-secondary" onclick="toggleLive()">LIVE</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid View -->
+            <div id="gridView" style="display:none; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:1px; background:var(--border); height:100%; overflow-y:auto"></div>
+        </section>
+
+        <!-- Event Feed -->
+        <aside class="event-feed">
+            <div class="sidebar-header">Intelligence Events</div>
+            <div class="feed-list" id="eventFeed"></div>
+        </aside>
+    </div>
+
+    <!-- Modals -->
+    <div id="loginModal" class="modal-overlay" style="display:flex">
+        <div class="modal animate-in">
+            <h2 style="margin-bottom:24px; font-family:'Outfit'">CamVision Login</h2>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUser" value="admin">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPass" value="admin">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="login()">LOGIN</button>
+            <p id="loginError" style="color:var(--error); font-size:12px; margin-top:12px; text-align:center"></p>
+        </div>
+    </div>
+
+    <div id="addCamModal" class="modal-overlay">
+        <div class="modal">
+            <h2 style="margin-bottom:24px; font-family:'Outfit'">Add ONVIF Device</h2>
+            <div class="form-group"><label>Device Name</label><input type="text" id="camName" placeholder="Entry Gate"></div>
+            <div class="form-group"><label>Host / IP</label><input type="text" id="camHost" placeholder="192.168.1.10"></div>
+            <div class="form-group"><label>Username</label><input type="text" id="camUser" value="admin"></div>
+            <div class="form-group"><label>Password</label><input type="password" id="camPass"></div>
+            <div style="display:flex; gap:12px">
+                <button class="btn btn-secondary" style="flex:1" onclick="hideModal('addCamModal')">CANCEL</button>
+                <button class="btn btn-primary" style="flex:1" onclick="addCamera()">ADD</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('cv_token');
+        let activeCamId = null;
+        let cameras = [];
+        let isLive = true;
+        let detectionInterval = null;
+
+        const API = '';
+
+        // ── Auth ──────────────────────────────────────────────────────────
+
+        async function login() {
+            const user = document.getElementById('loginUser').value;
+            const pass = document.getElementById('loginPass').value;
+            const err = document.getElementById('loginError');
+
+            try {
+                const formData = new FormData();
+                formData.append('username', user);
+                formData.append('password', pass);
+
+                const res = await fetch(`${API}/login`, { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (res.ok) {
+                    token = data.access_token;
+                    localStorage.setItem('cv_token', token);
+                    document.getElementById('loginModal').style.display = 'none';
+                    initApp();
+                } else {
+                    err.textContent = data.detail || 'Login failed';
+                }
+            } catch (e) { err.textContent = 'Server unreachable'; }
+        }
+
+        function logout() {
+            localStorage.removeItem('cv_token');
+            location.reload();
+        }
+
+        // ── Initialization ────────────────────────────────────────────────
+
+        function initApp() {
+            if (!token) return;
+            loadCameras();
+            pollEvents();
+        }
+
+        if (token) {
+            document.getElementById('loginModal').style.display = 'none';
+            initApp();
+        }
+
+        async function loadCameras() {
+            try {
+                const res = await fetch(`${API}/cameras`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                cameras = await res.json();
+                renderSidebar();
+                if (cameras.length > 0 && !activeCamId) selectCam(cameras[0].id);
+            } catch (e) { console.error('Load fail:', e); }
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('camList');
+            list.innerHTML = cameras.map(c => `
+                <div class="cam-item ${activeCamId === c.id ? 'active' : ''}" onclick="selectCam('${c.id}')">
+                    <div class="cam-icon">${c.device_type === 'NVR' ? '💾' : '📷'}</div>
+                    <div class="cam-info">
+                        <div class="cam-name">${c.name}</div>
+                        <div class="cam-status">
+                            <div class="dot online"></div>
+                            <span>${c.brand.toUpperCase()} · ${c.primary_res || '1080p'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── Core Actions ──────────────────────────────────────────────────
+
+        async function selectCam(id) {
+            activeCamId = id;
+            renderSidebar();
+            toggleLive();
+        }
+
+        function toggleLive() {
+            isLive = true;
+            const vid = document.getElementById('mainVideo');
+            const ov = document.getElementById('videoOverlay');
+            ov.style.display = 'flex';
+            
+            // In a real app, we might append the token to the URL or use a cookie
+            vid.src = `${API}/cameras/${activeCamId}/live-stream`;
+            vid.onplaying = () => { ov.style.display = 'none'; startDetection(); };
+            document.getElementById('playBtn').textContent = 'PAUSE';
+        }
+
+        async function fetchArchive() {
+            const dt = document.getElementById('dtPicker').value;
+            if (!dt) return;
+            isLive = false;
+            stopDetection();
+            const vid = document.getElementById('mainVideo');
+            const ov = document.getElementById('videoOverlay');
+            ov.style.display = 'flex';
+            
+            const url = `${API}/cameras/${activeCamId}/chunk?start=${encodeURIComponent(dt)}&duration=30`;
+            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            const blob = await res.blob();
+            vid.src = URL.createObjectURL(blob);
+            vid.onplaying = () => { ov.style.display = 'none'; };
+            document.getElementById('playBtn').textContent = 'PLAY';
+        }
+
+        async function addCamera() {
+            const body = {
+                name: document.getElementById('camName').value,
+                host: document.getElementById('camHost').value,
+                username: document.getElementById('camUser').value,
+                password: document.getElementById('camPass').value
+            };
+
+            const res = await fetch(`${API}/cameras`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                hideModal('addCamModal');
+                loadCameras();
+            } else {
+                alert('Add failed');
+            }
+        }
+
+        // ── UI Helpers ────────────────────────────────────────────────────
+
+        function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function hideModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function switchView(view) {
+            const p = document.getElementById('playerView');
+            const g = document.getElementById('gridView');
+            if (view === 'grid') {
+                p.style.display = 'none'; g.style.display = 'grid';
+                renderGrid();
+            } else {
+                p.style.display = 'flex'; g.style.display = 'none';
+            }
+        }
+
+        function renderGrid() {
+            const g = document.getElementById('gridView');
+            g.innerHTML = cameras.map(c => `
+                <div style="position:relative; aspect-ratio:16/9; background:#000">
+                    <video autoplay muted playsinline src="${API}/cameras/${c.id}/live-stream" style="width:100%; height:100%; object-fit:cover"></video>
+                    <div style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.7); padding:4px 10px; border-radius:4px; font-size:11px; font-weight:700">${c.name}</div>
+                </div>
+            `).join('');
+        }
+
+        // ── Intelligence ──────────────────────────────────────────────────
+
+        function startDetection() {
+            if (detectionInterval) clearInterval(detectionInterval);
+            detectionInterval = setInterval(async () => {
+                if (!isLive || !activeCamId) return;
+                try {
+                    const res = await fetch(`${API}/cameras/${activeCamId}/detect`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    drawDetections(data.detections);
+                } catch (e) {}
+            }, 2000);
+        }
+
+        function stopDetection() {
+            if (detectionInterval) clearInterval(detectionInterval);
+            const canvas = document.getElementById('detectionCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawDetections(detections) {
+            const canvas = document.getElementById('detectionCanvas');
+            const vid = document.getElementById('mainVideo');
+            canvas.width = vid.clientWidth;
+            canvas.height = vid.clientHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            detections.forEach(det => {
+                const [x, y, w, h] = det.box;
+                const scaleX = canvas.width / 1280; // Assuming 720p internal scale
+                const scaleY = canvas.height / 720;
+                
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+                
+                ctx.fillStyle = '#3b82f6';
+                ctx.font = 'bold 12px Inter';
+                ctx.fillText(`${det.label.toUpperCase()} ${Math.round(det.confidence*100)}%`, x * scaleX, y * scaleY - 5);
+            });
+        }
+
+        async function pollEvents() {
+            const feed = document.getElementById('eventFeed');
+            setInterval(async () => {
+                if (!activeCamId) return;
+                try {
+                    const res = await fetch(`${API}/cameras/${activeCamId}/detect`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    if (data.detections.length > 0) {
+                        data.detections.forEach(det => {
+                            if (det.confidence > 0.8) {
+                                const card = document.createElement('div');
+                                card.className = 'event-card';
+                                card.innerHTML = `
+                                    <div class="event-thumb">
+                                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:rgba(59,130,246,0.1); color:#3b82f6; font-size:10px; font-weight:800">CAPTURE</div>
+                                    </div>
+                                    <div class="event-type">${det.label} DETECTED</div>
+                                    <div class="event-time">${new Date().toLocaleTimeString()}</div>
+                                `;
+                                feed.prepend(card);
+                                if (feed.children.length > 20) feed.lastChild.remove();
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
