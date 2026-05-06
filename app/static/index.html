@@ -9,96 +9,103 @@
 </head>
 <body>
 
-    <header>
-        <a href="#" class="brand">
-            <img src="images/logo.png" alt="CamVision Logo">
-            <h1>CamVision Advance</h1>
-        </a>
-        <div style="margin-left:auto; display:flex; gap:16px; align-items:center">
-            <button class="btn btn-secondary" onclick="switchView('grid')">GRID VIEW</button>
-            <button class="btn btn-secondary" onclick="switchView('player')">PLAYER</button>
-            <div style="width:1px; height:24px; background:var(--border)"></div>
-            <div id="userProfile" style="display:flex; align-items:center; gap:10px">
-                <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700">A</div>
-                <span id="usernameDisplay" style="font-weight:600; font-size:13px">Admin</span>
-            </div>
-            <button class="btn btn-secondary" style="width:40px; padding:0; justify-content:center" onclick="logout()">🏃</button>
-        </div>
-    </header>
-
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">Active Devices</div>
-            <div class="cam-list" id="camList"></div>
-            <div style="padding:16px; border-top:1px solid var(--border)">
-                <button class="btn btn-primary" style="width:100%" onclick="showModal('addCamModal')">＋ ADD NEW DEVICE</button>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <section class="content">
-            <!-- Player View -->
-            <div id="playerView" style="flex:1; display:flex; flex-direction:column">
-                <div class="video-container">
-                    <video id="mainVideo" autoplay muted playsinline></video>
-                    <div id="videoOverlay" class="video-overlay" style="display:none">
-                        <div class="loader"></div>
-                    </div>
-                    <!-- Detection Canvas Overlay -->
-                    <canvas id="detectionCanvas" style="position:absolute; inset:0; pointer-events:none"></canvas>
-                </div>
-
-                <div class="controls-bar">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-                        <span style="font-weight:700; font-size:12px; letter-spacing:1px">ARCHIVE TIMELINE</span>
-                        <div style="display:flex; gap:8px; align-items:center">
-                            <input type="datetime-local" id="dtPicker" class="glass" style="height:32px; border-radius:4px; padding:0 8px; border:1px solid var(--border); color:#fff">
-                            <button class="btn btn-primary" style="height:32px; font-size:11px" onclick="fetchArchive()">SEEK</button>
-                        </div>
-                    </div>
-                    <div class="timeline-track" id="timelineTrack" onclick="seekTimeline(event)">
-                        <div class="timeline-cursor" id="timelineCursor"></div>
-                        <div id="timelineSegments"></div>
-                    </div>
-                    <div style="display:flex; justify-content:center; gap:16px">
-                        <button class="btn btn-secondary" onclick="step(-10)">-10s</button>
-                        <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">PAUSE</button>
-                        <button class="btn btn-secondary" onclick="step(10)">+10s</button>
-                        <button class="btn btn-secondary" onclick="toggleLive()">LIVE</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Grid View -->
-            <div id="gridView" style="display:none; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:1px; background:var(--border); height:100%; overflow-y:auto"></div>
-        </section>
-
-        <!-- Event Feed -->
-        <aside class="event-feed">
-            <div class="sidebar-header">Intelligence Events</div>
-            <div class="feed-list" id="eventFeed"></div>
-        </aside>
-    </div>
-
-    <!-- Modals -->
-    <div id="loginModal" class="modal-overlay" style="display:flex">
+    <!-- 🔒 Login Screen -->
+    <div id="loginScreen" class="modal-overlay" style="display:flex">
         <div class="modal animate-in">
-            <h2 style="margin-bottom:24px; font-family:'Outfit'">CamVision Login</h2>
+            <div style="text-align:center; margin-bottom:32px">
+                <img src="images/logo.png" style="width:64px; height:64px; margin-bottom:16px">
+                <h2 style="font-family:'Outfit'; font-size:24px">Welcome Back</h2>
+                <p style="color:var(--text-dim); font-size:13px; margin-top:8px">Access your intelligent VMS</p>
+            </div>
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="loginUser" value="admin">
+                <input type="text" id="loginUser" value="admin" placeholder="Enter username">
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" id="loginPass" value="admin">
+                <input type="password" id="loginPass" value="admin" placeholder="Enter password">
             </div>
-            <button class="btn btn-primary" style="width:100%" onclick="login()">LOGIN</button>
-            <p id="loginError" style="color:var(--error); font-size:12px; margin-top:12px; text-align:center"></p>
+            <button class="btn btn-primary" style="width:100%; height:48px; font-size:15px" onclick="login()">SIGN IN</button>
+            <p id="loginError" style="color:var(--error); font-size:12px; margin-top:16px; text-align:center"></p>
         </div>
     </div>
 
-    <div id="addCamModal" class="modal-overlay">
+    <!-- 🛡️ Main App Container (Hidden by default) -->
+    <div id="appContainer" style="display:none">
+        <header>
+            <a href="#" class="brand">
+                <img src="images/logo.png" alt="CamVision Logo">
+                <h1>CamVision Advance</h1>
+            </a>
+            <div style="margin-left:auto; display:flex; gap:16px; align-items:center">
+                <button class="btn btn-secondary" onclick="switchView('grid')">GRID VIEW</button>
+                <button class="btn btn-secondary" onclick="switchView('player')">PLAYER</button>
+                <div style="width:1px; height:24px; background:var(--border)"></div>
+                <div id="userProfile" style="display:flex; align-items:center; gap:10px">
+                    <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700">A</div>
+                    <span id="usernameDisplay" style="font-weight:600; font-size:13px">Admin</span>
+                </div>
+                <button class="btn btn-secondary" style="width:40px; padding:0; justify-content:center; color:var(--error)" onclick="logout()" title="Logout">↩</button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">Active Devices</div>
+                <div class="cam-list" id="camList"></div>
+                <div style="padding:16px; border-top:1px solid var(--border)">
+                    <button class="btn btn-primary" style="width:100%" onclick="showModal('addCamModal')">＋ ADD NEW DEVICE</button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <section class="content">
+                <!-- Player View -->
+                <div id="playerView" style="flex:1; display:flex; flex-direction:column">
+                    <div class="video-container">
+                        <video id="mainVideo" autoplay muted playsinline></video>
+                        <div id="videoOverlay" class="video-overlay" style="display:none">
+                            <div class="loader"></div>
+                        </div>
+                        <canvas id="detectionCanvas" style="position:absolute; inset:0; pointer-events:none"></canvas>
+                    </div>
+
+                    <div class="controls-bar">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                            <span style="font-weight:700; font-size:12px; letter-spacing:1px">ARCHIVE TIMELINE</span>
+                            <div style="display:flex; gap:8px; align-items:center">
+                                <input type="datetime-local" id="dtPicker" class="glass" style="height:32px; border-radius:4px; padding:0 8px; border:1px solid var(--border); color:#fff">
+                                <button class="btn btn-primary" style="height:32px; font-size:11px" onclick="fetchArchive()">SEEK</button>
+                            </div>
+                        </div>
+                        <div class="timeline-track" id="timelineTrack" onclick="seekTimeline(event)">
+                            <div class="timeline-cursor" id="timelineCursor"></div>
+                            <div id="timelineSegments"></div>
+                        </div>
+                        <div style="display:flex; justify-content:center; gap:16px">
+                            <button class="btn btn-secondary" onclick="step(-10)">-10s</button>
+                            <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">PAUSE</button>
+                            <button class="btn btn-secondary" onclick="step(10)">+10s</button>
+                            <button class="btn btn-secondary" onclick="toggleLive()">LIVE</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid View -->
+                <div id="gridView" style="display:none; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:1px; background:var(--border); height:100%; overflow-y:auto"></div>
+            </section>
+
+            <!-- Event Feed -->
+            <aside class="event-feed">
+                <div class="sidebar-header">Intelligence Events</div>
+                <div class="feed-list" id="eventFeed"></div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- ➕ Add Camera Modal -->
+    <div id="addCamModal" class="modal-overlay" style="display:none">
         <div class="modal">
             <h2 style="margin-bottom:24px; font-family:'Outfit'">Add ONVIF Device</h2>
             <div class="form-group"><label>Device Name</label><input type="text" id="camName" placeholder="Entry Gate"></div>
@@ -121,7 +128,7 @@
 
         const API = '';
 
-        // ── Auth ──────────────────────────────────────────────────────────
+        // ── Auth Logic ──────────────────────────────────────────────────
 
         async function login() {
             const user = document.getElementById('loginUser').value;
@@ -139,12 +146,11 @@
                 if (res.ok) {
                     token = data.access_token;
                     localStorage.setItem('cv_token', token);
-                    document.getElementById('loginModal').style.display = 'none';
-                    initApp();
+                    showDashboard();
                 } else {
-                    err.textContent = data.detail || 'Login failed';
+                    err.textContent = data.detail || 'Invalid username or password';
                 }
-            } catch (e) { err.textContent = 'Server unreachable'; }
+            } catch (e) { err.textContent = 'Server connection failed'; }
         }
 
         function logout() {
@@ -152,7 +158,13 @@
             location.reload();
         }
 
-        // ── Initialization ────────────────────────────────────────────────
+        function showDashboard() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            initApp();
+        }
+
+        // ── Initialization ──────────────────────────────────────────────
 
         function initApp() {
             if (!token) return;
@@ -160,9 +172,9 @@
             pollEvents();
         }
 
+        // Initial State Check
         if (token) {
-            document.getElementById('loginModal').style.display = 'none';
-            initApp();
+            showDashboard();
         }
 
         async function loadCameras() {
@@ -170,6 +182,8 @@
                 const res = await fetch(`${API}/cameras`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) return logout();
+                
                 cameras = await res.json();
                 renderSidebar();
                 if (cameras.length > 0 && !activeCamId) selectCam(cameras[0].id);
@@ -192,7 +206,7 @@
             `).join('');
         }
 
-        // ── Core Actions ──────────────────────────────────────────────────
+        // ── Camera Actions ──────────────────────────────────────────────
 
         async function selectCam(id) {
             activeCamId = id;
@@ -206,7 +220,7 @@
             const ov = document.getElementById('videoOverlay');
             ov.style.display = 'flex';
             
-            // In a real app, we might append the token to the URL or use a cookie
+            // In production, use session cookies or token in header for streams
             vid.src = `${API}/cameras/${activeCamId}/live-stream`;
             vid.onplaying = () => { ov.style.display = 'none'; startDetection(); };
             document.getElementById('playBtn').textContent = 'PAUSE';
@@ -214,7 +228,7 @@
 
         async function fetchArchive() {
             const dt = document.getElementById('dtPicker').value;
-            if (!dt) return;
+            if (!dt) return alert('Select a start time');
             isLive = false;
             stopDetection();
             const vid = document.getElementById('mainVideo');
@@ -223,10 +237,15 @@
             
             const url = `${API}/cameras/${activeCamId}/chunk?start=${encodeURIComponent(dt)}&duration=30`;
             const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-            const blob = await res.blob();
-            vid.src = URL.createObjectURL(blob);
-            vid.onplaying = () => { ov.style.display = 'none'; };
-            document.getElementById('playBtn').textContent = 'PLAY';
+            if (res.ok) {
+                const blob = await res.blob();
+                vid.src = URL.createObjectURL(blob);
+                vid.onplaying = () => { ov.style.display = 'none'; };
+                document.getElementById('playBtn').textContent = 'PLAY';
+            } else {
+                alert('Recording not found');
+                ov.style.display = 'none';
+            }
         }
 
         async function addCamera() {
@@ -250,11 +269,11 @@
                 hideModal('addCamModal');
                 loadCameras();
             } else {
-                alert('Add failed');
+                alert('Add failed - check credentials or ONVIF port');
             }
         }
 
-        // ── UI Helpers ────────────────────────────────────────────────────
+        // ── UI Control ──────────────────────────────────────────────────
 
         function showModal(id) { document.getElementById(id).style.display = 'flex'; }
         function hideModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -280,7 +299,7 @@
             `).join('');
         }
 
-        // ── Intelligence ──────────────────────────────────────────────────
+        // ── Intelligence Logic ──────────────────────────────────────────
 
         function startDetection() {
             if (detectionInterval) clearInterval(detectionInterval);
@@ -313,7 +332,7 @@
 
             detections.forEach(det => {
                 const [x, y, w, h] = det.box;
-                const scaleX = canvas.width / 1280; // Assuming 720p internal scale
+                const scaleX = canvas.width / 1280; // Assuming 720p normalized coordinates
                 const scaleY = canvas.height / 720;
                 
                 ctx.strokeStyle = '#3b82f6';
@@ -335,11 +354,11 @@
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const data = await res.json();
-                    if (data.detections.length > 0) {
+                    if (data.detections && data.detections.length > 0) {
                         data.detections.forEach(det => {
                             if (det.confidence > 0.8) {
                                 const card = document.createElement('div');
-                                card.className = 'event-card';
+                                card.className = 'event-card animate-in';
                                 card.innerHTML = `
                                     <div class="event-thumb">
                                         <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:rgba(59,130,246,0.1); color:#3b82f6; font-size:10px; font-weight:800">CAPTURE</div>
