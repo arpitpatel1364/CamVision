@@ -45,8 +45,8 @@ CamVision is a high-performance, developer-friendly video gateway that bridges p
 ## Preview
 
 <p align="center">
-  <img src="images/proof_01.png" width="45%" alt="Live View">
-  <img src="images/proof_02.png" width="45%" alt="Grid Monitor">
+  <img src="images/screenshot_01.png" width="45%" alt="Screenshot 1">
+  <img src="images/screenshot_02.png" width="45%" alt="Screenshot 2">
 </p>
 
 ---

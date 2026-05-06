@@ -41,8 +41,8 @@
                 <button class="btn btn-secondary" onclick="switchView('grid')">GRID VIEW</button>
                 <button class="btn btn-secondary" onclick="switchView('player')">PLAYER</button>
                 <div style="width:1px; height:24px; background:var(--border)"></div>
-                <div id="userProfile" style="display:flex; align-items:center; gap:10px">
-                    <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700">A</div>
+                <div id="userProfile" style="display:flex; align-items:center; gap:10px; cursor:pointer" onclick="showProfile()">
+                    <div id="headerInitials" style="width:32px; height:32px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700">A</div>
                     <span id="usernameDisplay" style="font-weight:600; font-size:13px">Admin</span>
                 </div>
                 <button class="btn btn-secondary" style="width:40px; padding:0; justify-content:center; color:var(--error)" onclick="logout()" title="Logout">↩</button>
@@ -93,7 +93,7 @@
                 </div>
 
                 <!-- Grid View -->
-                <div id="gridView" style="display:none; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:1px; background:var(--border); height:100%; overflow-y:auto"></div>
+                <div id="gridView" style="display:none; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:12px; padding:12px; background:var(--bg); height:100%; overflow-y:auto"></div>
             </section>
 
             <!-- Event Feed -->
@@ -104,23 +104,121 @@
         </div>
     </div>
 
+    <!-- 👤 User Profile Modal -->
+    <div id="profileModal" class="modal-overlay" style="display:none">
+        <div class="modal animate-in" style="width:500px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+                <h2 style="font-family:'Outfit'">User Profile</h2>
+                <button class="btn btn-secondary" style="width:32px; height:32px; padding:0" onclick="hideModal('profileModal')">✕</button>
+            </div>
+
+            <div class="tab-container">
+                <div class="tab active" id="tabGeneral" onclick="switchProfileTab('general')">General</div>
+                <div class="tab" id="tabSecurity" onclick="switchProfileTab('security')">Security</div>
+            </div>
+
+            <div id="profileView">
+                <div class="profile-card">
+                    <div class="profile-avatar-large" id="profileInitials">A</div>
+                    <div style="text-align:center">
+                        <h3 id="displayFullName" style="font-size:18px">Admin User</h3>
+                        <p id="displayUsername" style="color:var(--text-dim); font-size:13px">@admin</p>
+                    </div>
+                </div>
+
+                <div id="generalSettings">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="editFullName" placeholder="John Doe">
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="editEmail" placeholder="john@example.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Bio</label>
+                        <textarea id="editBio" style="width:100%; height:80px; background:#111; border:1px solid var(--border); border-radius:6px; color:#fff; padding:12px; outline:none; font-family:var(--font-main); resize:none" placeholder="Tell us about yourself..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%" onclick="updateProfile()">SAVE CHANGES</button>
+                </div>
+
+                <div id="securitySettings" style="display:none">
+                    <div class="form-group">
+                        <label>Current Password</label>
+                        <input type="password" id="oldPass" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" id="newPass" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="confirmPass" placeholder="••••••••">
+                    </div>
+                    <button class="btn btn-primary" style="width:100%" onclick="changePassword()">UPDATE PASSWORD</button>
+                </div>
+            </div>
+
+            <p id="profileMessage" style="font-size:12px; margin-top:16px; text-align:center"></p>
+        </div>
+    </div>
+
     <!-- ➕ Add Camera Modal -->
     <div id="addCamModal" class="modal-overlay" style="display:none">
-        <div class="modal">
-            <h2 style="margin-bottom:24px; font-family:'Outfit'">Add ONVIF Device</h2>
-            <div class="form-group"><label>Device Name</label><input type="text" id="camName" placeholder="Entry Gate"></div>
-            <div class="form-group"><label>Host / IP</label><input type="text" id="camHost" placeholder="192.168.1.10"></div>
-            <div class="form-group"><label>Username</label><input type="text" id="camUser" value="admin"></div>
-            <div class="form-group"><label>Password</label><input type="password" id="camPass"></div>
-            <div style="display:flex; gap:12px">
-                <button class="btn btn-secondary" style="flex:1" onclick="hideModal('addCamModal')">CANCEL</button>
-                <button class="btn btn-primary" style="flex:1" onclick="addCamera()">ADD</button>
+        <div class="modal animate-in" style="width:480px">
+            <h2 style="margin-bottom:24px; font-family:'Outfit'">Discovery & Onboarding</h2>
+            
+            <div id="addForm">
+                <div class="form-group">
+                    <label>Device Name (Alias)</label>
+                    <input type="text" id="camName" placeholder="Main Lobby NVR">
+                </div>
+                <div class="form-group">
+                    <label>IP Address / Host</label>
+                    <input type="text" id="camHost" placeholder="192.168.1.10">
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+                    <div class="form-group">
+                        <label>ONVIF Port</label>
+                        <input type="number" id="camPort" value="80">
+                    </div>
+                    <div class="form-group">
+                        <label>RTSP Port</label>
+                        <input type="number" id="camRtsp" value="554">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ONVIF Username</label>
+                    <input type="text" id="camUser" value="admin">
+                </div>
+                <div class="form-group">
+                    <label>ONVIF Password</label>
+                    <input type="password" id="camPass" placeholder="Required for discovery">
+                </div>
+                
+                <div style="display:flex; gap:12px; margin-top:24px">
+                    <button class="btn btn-secondary" style="flex:1" onclick="hideModal('addCamModal')">CANCEL</button>
+                    <button class="btn btn-primary" id="addSubmitBtn" style="flex:1" onclick="addCamera()">PROBE & ADD</button>
+                </div>
             </div>
+
+            <div id="addLoader" style="display:none; text-align:center; padding:40px 0">
+                <div class="loader" style="margin:0 auto 20px"></div>
+                <p style="font-weight:600">Probing ONVIF Services...</p>
+                <p style="color:var(--text-dim); font-size:12px; margin-top:8px">Analyzing device capabilities and streams</p>
+            </div>
+            
+            <p id="addError" style="color:var(--error); font-size:12px; margin-top:16px; text-align:center"></p>
         </div>
     </div>
 
     <script>
         let token = localStorage.getItem('cv_token');
+        let currentUser = null;
         let activeCamId = null;
         let cameras = [];
         let isLive = true;
@@ -166,10 +264,126 @@
 
         // ── Initialization ──────────────────────────────────────────────
 
-        function initApp() {
+        async function initApp() {
             if (!token) return;
+            await loadUserProfile();
             loadCameras();
             pollEvents();
+        }
+
+        async function loadUserProfile() {
+            try {
+                const res = await fetch(`${API}/api/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    currentUser = await res.json();
+                    updateUserUI();
+                } else if (res.status === 401) {
+                    logout();
+                }
+            } catch (e) { console.error('Profile load fail:', e); }
+        }
+
+        function updateUserUI() {
+            if (!currentUser) return;
+            const initials = (currentUser.full_name || currentUser.username).charAt(0).toUpperCase();
+            document.getElementById('usernameDisplay').textContent = currentUser.full_name || currentUser.username;
+            document.getElementById('headerInitials').textContent = initials;
+            
+            // Modal updates
+            document.getElementById('profileInitials').textContent = initials;
+            document.getElementById('displayFullName').textContent = currentUser.full_name || 'Set your name';
+            document.getElementById('displayUsername').textContent = `@${currentUser.username}`;
+            document.getElementById('editFullName').value = currentUser.full_name || '';
+            document.getElementById('editEmail').value = currentUser.email || '';
+            document.getElementById('editBio').value = currentUser.bio || '';
+        }
+
+        function showProfile() {
+            showModal('profileModal');
+            switchProfileTab('general');
+            document.getElementById('profileMessage').textContent = '';
+        }
+
+        function switchProfileTab(tab) {
+            const gen = document.getElementById('generalSettings');
+            const sec = document.getElementById('securitySettings');
+            const tabG = document.getElementById('tabGeneral');
+            const tabS = document.getElementById('tabSecurity');
+            
+            if (tab === 'general') {
+                gen.style.display = 'block'; sec.style.display = 'none';
+                tabG.classList.add('active'); tabS.classList.remove('active');
+            } else {
+                gen.style.display = 'none'; sec.style.display = 'block';
+                tabG.classList.remove('active'); tabS.classList.add('active');
+            }
+        }
+
+        async function updateProfile() {
+            const msg = document.getElementById('profileMessage');
+            const body = {
+                full_name: document.getElementById('editFullName').value,
+                email: document.getElementById('editEmail').value,
+                bio: document.getElementById('editBio').value
+            };
+
+            try {
+                const res = await fetch(`${API}/api/me`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    msg.style.color = 'var(--success)';
+                    msg.textContent = 'Profile updated successfully!';
+                    await loadUserProfile();
+                } else {
+                    const data = await res.json();
+                    msg.style.color = 'var(--error)';
+                    msg.textContent = data.detail || 'Update failed';
+                }
+            } catch (e) { msg.textContent = 'Connection error'; }
+        }
+
+        async function changePassword() {
+            const msg = document.getElementById('profileMessage');
+            const oldPass = document.getElementById('oldPass').value;
+            const newPass = document.getElementById('newPass').value;
+            const confirmPass = document.getElementById('confirmPass').value;
+
+            if (newPass !== confirmPass) {
+                msg.style.color = 'var(--error)';
+                return msg.textContent = 'Passwords do not match';
+            }
+
+            try {
+                const res = await fetch(`${API}/api/me/password`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+                });
+
+                if (res.ok) {
+                    msg.style.color = 'var(--success)';
+                    msg.textContent = 'Password updated successfully!';
+                    document.getElementById('oldPass').value = '';
+                    document.getElementById('newPass').value = '';
+                    document.getElementById('confirmPass').value = '';
+                } else {
+                    const data = await res.json();
+                    msg.style.color = 'var(--error)';
+                    msg.textContent = data.detail || 'Update failed';
+                }
+            } catch (e) { msg.textContent = 'Connection error'; }
         }
 
         // Initial State Check
@@ -186,6 +400,7 @@
                 
                 cameras = await res.json();
                 renderSidebar();
+                if (document.getElementById('gridView').style.display === 'grid') renderGrid();
                 if (cameras.length > 0 && !activeCamId) selectCam(cameras[0].id);
             } catch (e) { console.error('Load fail:', e); }
         }
@@ -220,7 +435,6 @@
             const ov = document.getElementById('videoOverlay');
             ov.style.display = 'flex';
             
-            // In production, use session cookies or token in header for streams
             vid.src = `${API}/cameras/${activeCamId}/live-stream`;
             vid.onplaying = () => { ov.style.display = 'none'; startDetection(); };
             document.getElementById('playBtn').textContent = 'PAUSE';
@@ -249,33 +463,60 @@
         }
 
         async function addCamera() {
+            const form = document.getElementById('addForm');
+            const loader = document.getElementById('addLoader');
+            const err = document.getElementById('addError');
+            
             const body = {
                 name: document.getElementById('camName').value,
                 host: document.getElementById('camHost').value,
+                port: parseInt(document.getElementById('camPort').value),
+                rtsp_port: parseInt(document.getElementById('camRtsp').value),
                 username: document.getElementById('camUser').value,
                 password: document.getElementById('camPass').value
             };
 
-            const res = await fetch(`${API}/cameras`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
-            });
+            if (!body.name || !body.host) return err.textContent = 'Name and Host are required';
 
-            if (res.ok) {
-                hideModal('addCamModal');
-                loadCameras();
-            } else {
-                alert('Add failed - check credentials or ONVIF port');
+            form.style.display = 'none';
+            loader.style.display = 'block';
+            err.textContent = '';
+
+            try {
+                const res = await fetch(`${API}/cameras`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    hideModal('addCamModal');
+                    loadCameras();
+                } else {
+                    const data = await res.json();
+                    throw new Error(data.detail || 'Probe failed');
+                }
+            } catch (e) {
+                err.textContent = e.message;
+                form.style.display = 'block';
+                loader.style.display = 'none';
             }
         }
 
         // ── UI Control ──────────────────────────────────────────────────
 
-        function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function showModal(id) { 
+            const m = document.getElementById(id);
+            m.style.display = 'flex'; 
+            if (id === 'addCamModal') {
+                document.getElementById('addForm').style.display = 'block';
+                document.getElementById('addLoader').style.display = 'none';
+                document.getElementById('addError').textContent = '';
+            }
+        }
         function hideModal(id) { document.getElementById(id).style.display = 'none'; }
 
         function switchView(view) {
@@ -291,12 +532,31 @@
 
         function renderGrid() {
             const g = document.getElementById('gridView');
+            if (cameras.length === 0) {
+                g.innerHTML = `
+                    <div style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim)">
+                        <span style="font-size:48px; margin-bottom:16px">📷</span>
+                        <p>No cameras added yet</p>
+                    </div>
+                `;
+                return;
+            }
             g.innerHTML = cameras.map(c => `
-                <div style="position:relative; aspect-ratio:16/9; background:#000">
-                    <video autoplay muted playsinline src="${API}/cameras/${c.id}/live-stream" style="width:100%; height:100%; object-fit:cover"></video>
-                    <div style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.7); padding:4px 10px; border-radius:4px; font-size:11px; font-weight:700">${c.name}</div>
+                <div class="grid-item" onclick="selectCamFromGrid('${c.id}')" style="position:relative; aspect-ratio:16/9; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--border); transition:all 0.3s; cursor:pointer">
+                    <video autoplay muted playsinline src="${API}/cameras/${c.id}/live-stream?low_res=true" style="width:100%; height:100%; object-fit:cover"></video>
+                    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 40%); pointer-events:none"></div>
+                    <div style="position:absolute; bottom:12px; left:12px; display:flex; align-items:center; gap:8px">
+                        <div class="dot online" style="width:8px; height:8px"></div>
+                        <span style="font-size:12px; font-weight:700; text-shadow:0 1px 4px rgba(0,0,0,0.5)">${c.name}</span>
+                    </div>
+                    <div style="position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; border:1px solid rgba(255,255,255,0.1)">${c.brand.toUpperCase()}</div>
                 </div>
             `).join('');
+        }
+
+        function selectCamFromGrid(id) {
+            selectCam(id);
+            switchView('player');
         }
 
         // ── Intelligence Logic ──────────────────────────────────────────
@@ -330,9 +590,11 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            if (!detections) return;
+
             detections.forEach(det => {
                 const [x, y, w, h] = det.box;
-                const scaleX = canvas.width / 1280; // Assuming 720p normalized coordinates
+                const scaleX = canvas.width / 1280; 
                 const scaleY = canvas.height / 720;
                 
                 ctx.strokeStyle = '#3b82f6';

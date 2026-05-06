@@ -6,6 +6,11 @@ from app.core.config import config
 DB_PATH = config.DATABASE_URL
 
 def init_db():
+    # Ensure directory exists if DB_PATH contains one
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+        
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -31,12 +36,15 @@ def init_db():
     )
     """)
     
-    # Users table for Phase 4
+    # Users table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY,
         password_hash TEXT,
-        role TEXT
+        role TEXT,
+        full_name TEXT,
+        email TEXT,
+        bio TEXT
     )
     """)
     
@@ -51,6 +59,17 @@ def init_db():
     )
     """)
     
+    # Ensure users table has all columns (Migration for Phase 4+)
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if columns:
+        if "full_name" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN full_name TEXT")
+        if "email" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        if "bio" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+
     conn.commit()
     conn.close()
 

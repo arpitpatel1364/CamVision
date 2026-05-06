@@ -53,6 +53,15 @@ def log_action(username: str, action: str, details: str = ""):
 
 # ── Models ─────────────────────────────────────────────────────────────────
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    bio: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
 class CameraIn(BaseModel):
     name:      str
     host:      str
@@ -94,7 +103,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         users_count = conn.execute("SELECT count(*) FROM users").fetchone()[0]
         if users_count == 0:
             hashed_pass = auth.get_password_hash(form_data.password)
-            conn.execute("INSERT INTO users VALUES (?, ?, ?)", (form_data.username, hashed_pass, "admin"))
+            conn.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
+                         (form_data.username, hashed_pass, "admin"))
             conn.commit()
             conn.close()
             return {"access_token": auth.create_access_token(data={"sub": form_data.username}), "token_type": "bearer"}
@@ -148,6 +158,46 @@ async def live_stream(cam_id: str, profile_token: Optional[str] = Query(None), l
     client = _make_client(cam)
     uri = client.get_live_uri(token)
     return StreamingResponse(stream_live(uri, low_res=low_res), media_type="video/mp4")
+
+@app.get("/api/me")
+def get_me(current_user: str = Depends(auth.get_current_user)):
+    conn = db.get_db()
+    user = conn.execute("SELECT username, role, full_name, email, bio FROM users WHERE username = ?", (current_user,)).fetchone()
+    conn.close()
+    if not user:
+        raise HTTPException(404, "User not found")
+    return dict(user)
+
+@app.put("/api/me")
+def update_me(body: UserUpdate, current_user: str = Depends(auth.get_current_user)):
+    conn = db.get_db()
+    conn.execute("""
+        UPDATE users 
+        SET full_name = COALESCE(?, full_name), 
+            email = COALESCE(?, email), 
+            bio = COALESCE(?, bio) 
+        WHERE username = ?
+    """, (body.full_name, body.email, body.bio, current_user))
+    conn.commit()
+    conn.close()
+    log_action(current_user, "UPDATE_PROFILE", "User updated profile info")
+    return {"status": "success"}
+
+@app.put("/api/me/password")
+def change_password(body: PasswordChange, current_user: str = Depends(auth.get_current_user)):
+    conn = db.get_db()
+    user = conn.execute("SELECT password_hash FROM users WHERE username = ?", (current_user,)).fetchone()
+    
+    if not user or not auth.verify_password(body.old_password, user["password_hash"]):
+        conn.close()
+        raise HTTPException(400, "Invalid old password")
+    
+    new_hash = auth.get_password_hash(body.new_password)
+    conn.execute("UPDATE users SET password_hash = ? WHERE username = ?", (new_hash, current_user))
+    conn.commit()
+    conn.close()
+    log_action(current_user, "CHANGE_PASSWORD", "User changed password")
+    return {"status": "success"}
 
 # Fallback for legacy /api/stream requests seen in logs
 @app.get("/api/stream")
